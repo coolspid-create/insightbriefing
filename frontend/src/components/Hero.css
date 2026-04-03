@@ -1,11 +1,11 @@
 .hero-section {
   position: relative;
   width: 100%;
-  min-height: 85vh;
+  min-height: 75vh;
   display: flex;
   align-items: center;
-  background-color: #f7f9fc; /* Light sophisticated background */
-  padding: 100px 0;
+  background-color: #f7f9fc;
+  padding: 40px 0 80px; /* 상단 여백 대폭 축소 */
   overflow: hidden;
   z-index: 1;
 }
@@ -171,7 +171,9 @@
   flex: 1;
   display: flex;
   justify-content: flex-end;
-  min-width: 0; /* Prevent flex overflow */
+  min-width: 0;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  transform-origin: right center;
 }
 
 /* The Grid Container */
@@ -322,29 +324,54 @@
 .ct-stars { font-size: 14px; color: #fbbf24; letter-spacing: 2px; }
 .ct-stars .off { color: #e5e7eb; }
 
-/* Responsive adjustments */
-@media (max-width: 991px) {
-  .hero-section {
-    padding: 60px 0;
-    min-height: auto;
+  /* 화면이 작아지며 텍스트를 가리기 시작할 때 페이드아웃 */
+  @media (max-width: 1250px) {
+    .hero-visual-area {
+      opacity: 0.4;
+      transform: scale(0.95);
+      pointer-events: none;
+    }
   }
-  .hero-container { 
-    flex-direction: column; 
-    text-align: center; 
-    gap: 40px; 
-    padding: 0 24px;
+
+  @media (max-width: 1100px) {
+    .hero-visual-area {
+      opacity: 0;
+      visibility: hidden;
+      width: 0;
+      flex: 0;
+    }
+    .hero-container {
+      justify-content: center;
+    }
+    .hero-text-area {
+      flex: 1;
+      max-width: 600px;
+      align-items: center;
+      text-align: center;
+    }
   }
-  .hero-text-area { 
-    flex: none; 
-    align-items: center; 
-    width: 100%; 
-    max-width: 100%; 
+
+  @media (max-width: 991px) {
+    .hero-section {
+      padding: 30px 0 60px;
+      min-height: auto;
+    }
+    .hero-container { 
+      flex-direction: column; 
+      text-align: center; 
+      gap: 30px; 
+      padding: 0 24px;
+    }
+    .hero-text-area { 
+      flex: none; 
+      align-items: center; 
+      width: 100%; 
+      max-width: 100%; 
+    }
+    .hero-visual-area { 
+      display: none;
+    }
   }
-  .hero-visual-area { 
-    justify-content: center; 
-    width: 100%;
-  }
-}
 
 @media (max-width: 768px) {
   .hero-section {
