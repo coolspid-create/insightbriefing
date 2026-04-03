@@ -14,19 +14,24 @@ async function fetchNaverNews(query) {
   try {
     const url = 'https://openapi.naver.com/v1/search/news.json';
     const response = await axios.get(url, {
-      params: { query: query, display: 30, sort: 'sim' },
+      params: { query: query, display: 50, sort: 'date' }, // 최신순(date)으로 50개 수집
       headers: {
         'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
         'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
       }
     });
 
-    return response.data.items.map(item => {
-      // 제목에서 언론사 추출 시도 (예: "삼성전자 - [파이낸셜뉴스]")
+    const now = new Date();
+    const limit = 24 * 60 * 60 * 1000; // 24시간 기준
+
+    // 수집된 기사 중 24시간 이내의 기사만 필터링
+    return response.data.items.filter(item => {
+      const pubDate = new Date(item.pubDate);
+      return (now - pubDate) < limit;
+    }).map(item => {
       const title = item.title.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"');
       const description = item.description.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"');
       
-      // 네이버 뉴스 검색 결과의 link 주소에서 언론사를 식별할 수 있는 정보를 AI에게 전달하기 위해 포함
       return {
         title,
         description,
