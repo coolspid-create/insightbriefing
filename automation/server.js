@@ -196,9 +196,13 @@ app.post('/api/research/all', AdminAuth, async (req, res) => {
     // 비동기로 작업을 진행합니다.
     (async () => {
       console.log(`[API] Bulk research started for all sectors.`);
+      updateStatus('all', 'working', '🌊 모든 섹터 뉴스 일괄 수집을 시작합니다.');
+      
       for (const sector of config.sectors) {
         try {
+          updateStatus(sector.id, 'working', `🔄 [Bulk] ${sector.name} 수집 시작...`);
           console.log(`[Bulk] Processing ${sector.name}...`);
+          
           const allData = await fetchAndProcessNews(sector.id);
           const sectorData = allData[sector.id];
           
@@ -207,11 +211,15 @@ app.post('/api/research/all', AdminAuth, async (req, res) => {
             sector_id: sector.id,
             content: sectorData
           });
+          
+          updateStatus(sector.id, 'idle', `✅ [Bulk] ${sector.name} 수집 완료!`);
         } catch (err) {
           console.error(`[Bulk Error] ${sector.name}:`, err);
+          updateStatus(sector.id, 'idle', `❌ [Bulk Error] ${sector.name}: ${err.message}`);
         }
       }
       console.log(`[API] Bulk research completed.`);
+      updateStatus('all', 'idle', '🏁 모든 섹터 뉴스 일괄 수집이 완료되었습니다.');
     })();
     
   } catch (error) {
@@ -233,8 +241,13 @@ app.post('/api/telegram/all', AdminAuth, async (req, res) => {
     // 비동기로 작업을 진행합니다.
     (async () => {
       console.log(`[API] Bulk telegram broadcast started for all sectors.`);
+      updateStatus('all', 'working', '✈️ 모든 섹터 텔레그램 발송을 시작합니다.');
+      
       for (const sector of config.sectors) {
         try {
+          updateStatus(sector.id, 'working', `📡 [Bulk] ${sector.name} 발송 중...`);
+          console.log(`[Bulk Telegram] Broadcasting ${sector.name}...`);
+          
           const { data, error } = await supabase
             .from('news_items')
             .select('content')
@@ -242,14 +255,18 @@ app.post('/api/telegram/all', AdminAuth, async (req, res) => {
             .single();
 
           if (data && data.content) {
-            console.log(`[Bulk Telegram] Broadcasting ${sector.name}...`);
             await broadcastToTelegram(sector.id, data.content);
+            updateStatus(sector.id, 'idle', `✅ [Bulk] ${sector.name} 발송 완료!`);
+          } else {
+            updateStatus(sector.id, 'idle', `⚠️ [Bulk] ${sector.name}: 기사가 없습니다.`);
           }
         } catch (err) {
           console.error(`[Bulk Telegram Error] ${sector.name}:`, err);
+          updateStatus(sector.id, 'idle', `❌ [Bulk Error] ${sector.name}: ${err.message}`);
         }
       }
       console.log(`[API] Bulk telegram broadcast completed.`);
+      updateStatus('all', 'idle', '🏁 모든 섹터 텔레그램 일괄 발송이 완료되었습니다.');
     })();
     
   } catch (error) {
