@@ -186,7 +186,7 @@ app.post('/api/telegram/:sectorId', AdminAuth, async (req, res) => {
 });
 
 // 6. Bulk Action API
-app.post('/api/research/all', AdminAuth, async (req, res) => {
+app.post('/api/bulk/research', AdminAuth, async (req, res) => {
   try {
     const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     
@@ -237,7 +237,7 @@ app.post('/api/research/all', AdminAuth, async (req, res) => {
   }
 });
 
-app.post('/api/telegram/all', AdminAuth, async (req, res) => {
+app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
   try {
     const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     

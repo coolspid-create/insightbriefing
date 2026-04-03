@@ -146,12 +146,13 @@ const AdminDashboard = () => {
     if (!window.confirm('모든 섹터의 뉴스를 순차적으로 다시 수집하시겠습니까? (이 작업은 몇 분 정도 소요될 수 있습니다.)')) return;
     setIsBulkResearching(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/research/all`, {
+      const res = await fetch(`${API_BASE_URL}/api/bulk/research`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) { logout(); return; }
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
       alert(data.message || '전체 섹터 뉴스 수집 완료!');
       fetchData();
     } catch (e) {
@@ -164,12 +165,13 @@ const AdminDashboard = () => {
     if (!window.confirm('모든 섹터에 현재 저장된 뉴스를 텔레그램으로 일괄 발송하시겠습니까?')) return;
     setIsBulkSending(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/telegram/all`, {
+      const res = await fetch(`${API_BASE_URL}/api/bulk/telegram`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) { logout(); return; }
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
       alert(data.message || '전체 섹터 텔레그램 발송 완료!');
     } catch (e) {
       alert('일괄 발송 중 오류: ' + e.message);
