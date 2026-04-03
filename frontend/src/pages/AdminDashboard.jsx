@@ -161,7 +161,7 @@ const AdminDashboard = () => {
   };
 
   const sendTelegramAllSectors = async () => {
-    if (!window.confirm('모든 섹터(신재생 제외)에 현재 저장된 뉴스를 텔레그램으로 일괄 발송하시겠습니까?')) return;
+    if (!window.confirm('모든 섹터에 현재 저장된 뉴스를 텔레그램으로 일괄 발송하시겠습니까?')) return;
     setIsBulkSending(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/telegram/all`, {
@@ -254,7 +254,7 @@ const AdminDashboard = () => {
         <div className="bulk-action-bar">
           <div className="bulk-info">
             <span className="bulk-title">🚀 전체 섹터 일괄 액션</span>
-            <span className="bulk-desc">모든 산업 분야의 파이프라인을 한 번에 제어합니다. (신재생에너지 발송 제외)</span>
+            <span className="bulk-desc">모든 산업 분야의 파이프라인을 한 번에 제어합니다.</span>
           </div>
           <div className="bulk-buttons">
             <button 
