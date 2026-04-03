@@ -16,7 +16,11 @@ const Header = () => {
   return (
     <header className="header thin-border-bottom">
       <div className="container header-content">
-        <div className="logo-area">
+        <div 
+          className="logo-area" 
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="logo thin-border">IB</div>
           <div className="title-area">
             <div className="title-subtitle">STRATEGY NEWS DESK</div>
