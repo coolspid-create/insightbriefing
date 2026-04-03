@@ -150,7 +150,15 @@ const AdminDashboard = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
       if (res.status === 401) { logout(); return; }
+      
+      // JSON 응답이 아닐 경우(예: 404 HTML) 처리
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("서버에서 올바른 데이터 형식이 오지 않았습니다. 서버 배포 중이거나 일시적 오류일 수 있습니다.");
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Server error');
       alert(data.message || '전체 섹터 뉴스 수집 완료!');
@@ -169,7 +177,14 @@ const AdminDashboard = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
       if (res.status === 401) { logout(); return; }
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("서버에서 올바른 데이터 형식이 오지 않았습니다. 서버 배포 중이거나 일시적 오류일 수 있습니다.");
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Server error');
       alert(data.message || '전체 섹터 텔레그램 발송 완료!');
