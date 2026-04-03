@@ -57,8 +57,10 @@ async function broadcastToTelegram(sectorId, newsItems) {
   let message = `☀️ <b>${sectorName} 데일리 브리핑</b>\n`;
   message += `📅 일자: ${dateStr}\n\n`;
   
-  if (isUrgent) {
+  if (isUrgent && sectorId !== 'sector-safe') {
     message = `🚨 <b>[긴급 필독] ${sectorName} 주요 리스크 및 동향 알림</b>\n📅 일자: ${dateStr}\n\n`;
+  } else if (isUrgent && sectorId === 'sector-safe') {
+    message = `🚨 <b>${sectorName} 주요 리스크 및 동향 알림</b>\n📅 일자: ${dateStr}\n\n`;
   }
 
   newsItems.forEach((news, idx) => {
