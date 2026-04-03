@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>인사이트 브리핑</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  :root {
+    --ink: #111827;
+    --muted: #5b6472;
+    --line: rgba(17, 24, 39, 0.14);
+    --gold: #8b6b3f;
+    --navy: #172554;
+    --safety: #3f1d2e;
+    --interior: #4b5563;
+    --ai: #0f766e;
+    --commerce: #7c2d12;
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Noto Sans KR', 'Inter', sans-serif;
+    background:
+      radial-gradient(circle at top, rgba(139, 107, 63, 0.07), transparent 32%),
+      linear-gradient(180deg, #fcfcfb 0%, #ffffff 32%, #fbfbfa 100%);
+    color: var(--ink);
+  }
+
+  .serif { font-family: 'Playfair Display', serif; }
+  .caps { font-family: 'Inter', sans-serif; letter-spacing: 0.18em; text-transform: uppercase; }
+
+  .shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    backdrop-filter: blur(14px);
+    background: rgba(255,255,255,0.84);
+    border-bottom: 0.5px solid var(--line);
+  }
+
+  .brand-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 24px;
+  }
+
+  .brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .brand-mark {
+    width: 48px;
+    height: 48px;
+    border: 0.5px solid rgba(17,24,39,0.18);
+    display: grid;
+    place-items: center;
+    background: rgba(255,255,255,0.92);
+    box-shadow: 0 10px 30px rgba(17,24,39,0.04);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+  }
+
+  .brand-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .brand-name span {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .brand-sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 7px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .tab-btn {
+    border: 0.5px solid var(--line);
+    background: rgba(255,255,255,0.86);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    transition: all 240ms ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .tab-btn.active,
+  .tab-btn:hover {
+    color: var(--ink);
+    border-color: rgba(17,24,39,0.26);
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(17,24,39,0.05);
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
+    gap: 28px;
+    align-items: end;
+    padding: 34px 0 26px;
+    border-bottom: 0.5px solid var(--line);
+  }
+
+  .hero-kicker {
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .hero-title {
+    font-size: 58px;
+    line-height: 0.98;
+    letter-spacing: -0.05em;
+    margin: 0;
+  }
+
+  .hero-desc {
+    margin-top: 14px;
+    max-width: 720px;
+    color: var(--muted);
+    line-height: 1.8;
+    font-size: 15px;
+  }
+
+  .hero-panel {
+    border: 0.5px solid var(--line);
+    background: rgba(255,255,255,0.72);
+    padding: 18px;
+    box-shadow: 0 18px 50px rgba(17,24,39,0.05);
+  }
+
+  .hero-panel-title {
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .keyword-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .keyword {
+    border: 0.5px solid var(--line);
+    padding: 5px 9px;
+    font-size: 11px;
+    background: rgba(255,255,255,0.7);
+  }
+
+  .section {
+    padding-top: 36px;
+    scroll-margin-top: 92px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 700ms ease, transform 700ms ease;
+  }
+
+  .section.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .section-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 18px;
+    border-bottom: 0.5px solid var(--line);
+  }
+
+  .section-kicker {
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 34px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    margin: 0;
+  }
+
+  .section-meta {
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .feed {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+  }
+
+  .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 140px;
+    gap: 14px;
+    align-items: start;
+    padding: 14px 0;
+    border-bottom: 0.5px solid var(--line);
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeUp 520ms ease forwards;
+  }
+
+  .item:nth-child(1) { animation-delay: 40ms; }
+  .item:nth-child(2) { animation-delay: 80ms; }
+  .item:nth-child(3) { animation-delay: 120ms; }
+  .item:nth-child(4) { animation-delay: 160ms; }
+  .item:nth-child(5) { animation-delay: 200ms; }
+  .item:nth-child(6) { animation-delay: 240ms; }
+
+  .impact {
+    border-left: 3px solid var(--navy);
+    padding-left: 8px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--ink);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .section.safety .impact { border-left-color: var(--safety); }
+  .section.interior .impact { border-left-color: var(--interior); }
+  .section.ai .impact { border-left-color: var(--ai); }
+  .section.commerce .impact { border-left-color: var(--commerce); }
+
+  .headline {
+    font-size: 19px;
+    line-height: 1.22;
+    letter-spacing: -0.02em;
+    margin: 0 0 4px 0;
+  }
+
+  .summary {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 6px 0;
+  }
+
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink);
+    text-decoration: none;
+    padding-bottom: 2px;
+    border-bottom: 0.5px solid rgba(17,24,39,0.55);
+    transition: transform 220ms ease, opacity 220ms ease;
+  }
+
+  .link:hover {
+    transform: translateX(2px);
+    opacity: 0.72;
+  }
+
+  .thumb-wrap {
+    position: relative;
+    overflow: hidden;
+    border: 0.5px solid rgba(17,24,39,0.1);
+    background: #f3f4f6;
+    box-shadow: 0 18px 40px rgba(17,24,39,0.05);
+  }
+
+  .thumb {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    transform: scale(1.01);
+    transition: transform 420ms ease;
+  }
+
+  .item:hover .thumb { transform: scale(1.05); }
+
+  .section.solar .thumb-wrap::after,
+  .section.safety .thumb-wrap::after,
+  .section.interior .thumb-wrap::after,
+  .section.ai .thumb-wrap::after,
+  .section.commerce .thumb-wrap::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 2px;
+  }
+
+  .section.solar .thumb-wrap::after { background: linear-gradient(90deg, #8b6b3f, #1d4ed8); }
+  .section.safety .thumb-wrap::after { background: linear-gradient(90deg, #7c2d12, #3f1d2e); }
+  .section.interior .thumb-wrap::after { background: linear-gradient(90deg, #6b7280, #374151); }
+  .section.ai .thumb-wrap::after { background: linear-gradient(90deg, #0f766e, #115e59); }
+  .section.commerce .thumb-wrap::after { background: linear-gradient(90deg, #9a3412, #7c2d12); }
+
+  .footer-note {
+    padding-top: 34px;
+    margin-top: 26px;
+    border-top: 0.5px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @keyframes fadeUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 1040px) {
+    .hero { grid-template-columns: 1fr; }
+    .feed { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 760px) {
+    .shell { padding: 18px 16px 56px; }
+    .brand-wrap {
+      padding: 14px 16px;
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .brand-name { font-size: 22px; }
+    .hero-title { font-size: 40px; }
+    .section-title { font-size: 28px; }
+    .item {
+      grid-template-columns: 1fr 120px;
+      gap: 12px;
+      padding: 20px 0;
+    }
+    .headline { font-size: 21px; }
+    .summary { font-size: 13px; line-height: 1.65; }
+  }
+
+  @media (max-width: 540px) {
+    .item { grid-template-columns: 1fr; }
+    .thumb-wrap { order: -1; }
+    .hero-title { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-lockup">
+        <div class="brand-mark">IB</div>
+        <div>
+          <div class="brand-name"><span>Strategy News Desk</span>INSIGHT BRIEFING</div>
+          <div class="brand-sub">전략 컨설팅 보고서처럼 읽히는 업종별 핵심 뉴스 브리핑</div>
+        </div>
+      </div>
+      <nav class="tabs" id="tabNav"></nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero section visible">
+      <div>
+        <div class="hero-kicker caps">Executive Sector Briefing</div>
+        <h1 class="serif hero-title">핵심 뉴스만 골라<br>짧고 빠르게 읽는 브리핑</h1>
+        <p class="hero-desc">
+          신재생에너지, 제품안전, 건설인테리어, AI테크, 커머스까지 5개 섹터를 한 화면 안에서 빠르게 스캔할 수 있도록 구성했습니다. 각 섹터는 그날의 핵심 뉴스 6개만 선별해 제목, 영향, 요약, 기사 링크, 대표 이미지 순으로 정리합니다.
+        </p>
+      </div>
+      <aside class="hero-panel">
+        <div class="hero-panel-title caps">Today's Key Topics</div>
+        <div class="keyword-grid" id="keywordGrid"></div>
+      </aside>
+    </section>
+
+    <div id="sectionsRoot"></div>
+
+    <div class="footer-note">
+      INSIGHT BRIEFING은 업종별 실무자가 짧은 시간 안에 흐름을 파악하고 판단할 수 있도록 설계된 프리미엄 브리핑 MVP 데모입니다.
+    </div>
+  </main>
+
+<script>
+const DATA = {
+  keywords: ['보조금 변화', '리콜 이슈', '원가 압박', 'AI 에이전트', '전환율', '납기 지연', '수주 기회', '플랫폼 정책'],
+  sectors: [
+    {
+      id: 'solar',
+      className: 'solar',
+      kicker: 'Sector 01',
+      title: '신재생에너지(태양광)',
+      meta: '정책 / 수주 / 공급망',
+      items: [
+        { title: '정부, 태양광 보조금 기준 완화', impact: '보조금 기준 변경으로 영업 제안 방식과 사업성 설명 문구를 빠르게 조정해야 합니다.', summary: '중소 사업자 입장에서는 진입 장벽이 낮아질 수 있어 제안 기회가 확대될 가능성이 있습니다.', image: 'https://images.unsplash.com/photo-1509395176047-4a66953fd231?q=80&w=900', link: '#' },
+        { title: '인버터 공급 지연 확대', impact: '납기 불확실성이 커지면서 일정 보수 운영과 대체 부품 전략이 중요해지고 있습니다.', summary: '부품 수급 문제로 프로젝트 일정 지연 가능성이 커지고 있어 사전 안내가 필요합니다.', image: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?q=80&w=900', link: '#' },
+        { title: '대형 발전사 프로젝트 확대', impact: '협력사 선정 기준이 강화될 수 있어 레퍼런스와 공급 역량 정리가 필요합니다.', summary: '시공·유지보수 파트너로 참여할 수 있는 수주 기회가 늘어날 수 있습니다.', image: 'https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?q=80&w=900', link: '#' },
+        { title: 'ESS 연계 트렌드 확산', impact: '단일 설비보다 통합 제안이 중요해지면서 상품 구성 전략 재정비가 필요합니다.', summary: '태양광과 ESS를 함께 제안하는 구조가 경쟁력 포인트로 부상하고 있습니다.', image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=900', link: '#' },
+        { title: '환율 변동 확대', impact: '수입 기자재 비중이 높은 프로젝트는 원가 설명 구조를 다시 정리해야 합니다.', summary: '수입 단가 예측이 어려워지며 고정 견적의 수익성 방어가 더 어려워지고 있습니다.', image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=900', link: '#' },
+        { title: '계통 접속 지연 이슈 재부각', impact: '설치 완료보다 상업운전 시점이 중요해지면서 고객 커뮤니케이션 리스크가 커질 수 있습니다.', summary: '접속 대기 기간이 길어질 경우 초기 상담 단계에서 일정 리스크 설명이 필요합니다.', image: 'https://images.unsplash.com/photo-1473445361085-b9a07f55608b?q=80&w=900', link: '#' }
+      ]
+    },
+    {
+      id: 'safety',
+      className: 'safety',
+      kicker: 'Sector 02',
+      title: '제품안전',
+      meta: '인증 / 리콜 / 판매 리스크',
+      items: [
+        { title: '생활용품 안전기준 위반 사례 공개', impact: '유통 전 검증 체계가 약한 브랜드는 사후 적발과 신뢰 하락 리스크가 커질 수 있습니다.', summary: '표시 누락과 기준치 초과 이슈가 반복되며 출시 전 검토 프로세스의 중요성이 커지고 있습니다.', image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=900', link: '#' },
+        { title: 'KC 인증 문의 증가', impact: '인증 대상 여부를 초기에 잘못 판단하면 출시 일정 전체가 밀릴 수 있습니다.', summary: '소형 생활가전 셀러를 중심으로 사전 컨설팅 수요가 빠르게 늘고 있습니다.', image: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&w=900', link: '#' },
+        { title: '온라인 마켓 안전표시 검수 강화', impact: '상세페이지 내 법정 표기 누락은 판매 중단이나 패널티로 이어질 수 있습니다.', summary: '플랫폼이 안전 관련 정보와 인증 노출 여부를 더 엄격하게 보기 시작했습니다.', image: 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=900', link: '#' },
+        { title: '휴대용 전기용품 화재 사고 보도 확산', impact: '브랜드의 안전 메시지 노출 수준이 경쟁력으로 작용할 수 있습니다.', summary: '안전인증 여부와 사용상 주의 정보에 대한 관심도 함께 높아졌습니다.', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=900', link: '#' },
+        { title: '시험성적서 버전 관리 오류 증가', impact: '문서 최신본 관리가 안 되면 납품 지연과 유통사 신뢰 하락으로 이어질 수 있습니다.', summary: '인증서와 시험성적서 최신 버전 관리 체계를 재점검해야 하는 상황입니다.', image: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=900', link: '#' },
+        { title: '어린이 제품군 패키지 표시 혼선', impact: '패키지 확정 직전 수정이 발생하면 일정과 비용 모두 흔들릴 수 있습니다.', summary: '디자인 단계에서 법정 표기 검토를 병행하는 구조가 더 중요해지고 있습니다.', image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=900', link: '#' }
+      ]
+    },
+    {
+      id: 'interior',
+      className: 'interior',
+      kicker: 'Sector 03',
+      title: '건설인테리어',
+      meta: '입주 / 시공 / 원가',
+      items: [
+        { title: '입주장 재개 지역 중심 시공 문의 증가', impact: '빠른 일정 응답과 표준 견적 체계가 계약 전환율에 직접 영향을 줄 수 있습니다.', summary: '중문, 부분 리모델링, 마감 공정 문의가 입주 단지를 중심으로 늘고 있습니다.', image: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=900', link: '#' },
+        { title: '강화유리 옵션 가격 편차 확대', impact: '옵션별 가격 차이가 커질수록 견적 신뢰를 높이는 설명 구조가 중요해집니다.', summary: '자재 스펙과 디자인 옵션에 따라 가격 차이가 크게 벌어지는 흐름입니다.', image: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?q=80&w=900', link: '#' },
+        { title: '주말 시공 요청 비중 증가', impact: '시간대별 슬롯 운영과 인력 배치 최적화가 수익성에 더 중요해지고 있습니다.', summary: '평일 부재 고객 비중이 높아지며 토요일 시공 선호가 강해지고 있습니다.', image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=900', link: '#' },
+        { title: '슬림 프레임 중문 선호 확대', impact: '디자인 사례 포트폴리오가 곧 영업 경쟁력으로 작동할 수 있습니다.', summary: '공간을 넓어 보이게 하는 미니멀 스타일 상담이 꾸준히 늘고 있습니다.', image: 'https://images.unsplash.com/photo-1494526585095-c41746248156?q=80&w=900', link: '#' },
+        { title: '비대면 견적 요청 증가', impact: '실측 전 정보 수집 프로세스가 정교할수록 방문 효율이 높아질 수 있습니다.', summary: '사진과 치수만으로 1차 상담을 원하는 고객 비중이 늘고 있습니다.', image: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=900', link: '#' },
+        { title: '장마철 마감 품질 문의 증가', impact: '계절성 설명을 사전에 제공하면 시공 후 클레임 가능성을 줄일 수 있습니다.', summary: '습도와 건조 시간에 대한 고객 민감도가 높아지며 시공 안내 중요성이 커지고 있습니다.', image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=900', link: '#' }
+      ]
+    },
+    {
+      id: 'ai',
+      className: 'ai',
+      kicker: 'Sector 04',
+      title: 'AI테크',
+      meta: '모델 / 에이전트 / 업무자동화',
+      items: [
+        { title: '업무용 AI 에이전트 도입 경쟁 본격화', impact: '단순 챗봇보다 실제 업무 실행형 에이전트 수요가 빠르게 늘고 있습니다.', summary: '기업은 생산성 실험이 아니라 실제 반복 업무 자동화 도입을 검토하는 단계로 이동 중입니다.', image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=900', link: '#' },
+        { title: '경량 모델 활용 전략 부상', impact: '비용 대비 성능을 고려한 모델 선택이 서비스 경쟁력과 직접 연결될 수 있습니다.', summary: '대형 모델 일변도에서 벗어나 목적형 경량 모델 활용 사례가 늘고 있습니다.', image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=900', link: '#' },
+        { title: 'RAG 품질보다 워크플로 통합이 중요', impact: '정확도만이 아니라 기존 도구와 얼마나 자연스럽게 연결되는지가 더 중요해지고 있습니다.', summary: '검색·요약 기능보다 실제 업무 흐름에 연결된 제품이 더 높은 평가를 받고 있습니다.', image: 'https://images.unsplash.com/photo-1516321310764-8d6a59a0d7ab?q=80&w=900', link: '#' },
+        { title: 'AI 코파일럿의 ROI 검증 강화', impact: '파일럿 단계에서 끝나지 않으려면 실제 시간 절감 수치를 증명해야 합니다.', summary: '기업 고객은 이제 데모보다 운영 지표와 비용 절감 효과를 더 강하게 요구하고 있습니다.', image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=900', link: '#' },
+        { title: '멀티모달 인터페이스 확산', impact: '텍스트 중심 UX에서 이미지·문서·음성 결합형 흐름 설계가 중요해지고 있습니다.', summary: '사용자는 질문보다 파일 업로드와 화면 기반 상호작용에 더 익숙해지고 있습니다.', image: 'https://images.unsplash.com/photo-1531746790731-6c087fecd65a?q=80&w=900', link: '#' },
+        { title: '개인화 메모리 경쟁 본격화', impact: '반복 사용성을 높이려면 사용자 맥락을 기억하는 제품 경험이 필수에 가까워지고 있습니다.', summary: 'AI 제품의 차별점이 응답 품질보다 연속적인 맥락 유지 능력으로 이동하고 있습니다.', image: 'https://images.unsplash.com/photo-1516321165247-4aa89a48be28?q=80&w=900', link: '#' }
+      ]
+    },
+    {
+      id: 'commerce',
+      className: 'commerce',
+      kicker: 'Sector 05',
+      title: '커머스',
+      meta: '플랫폼 / 전환율 / 운영',
+      items: [
+        { title: '플랫폼 수수료 정책 재조정 움직임', impact: '마진 구조가 약한 셀러는 채널별 가격 전략을 다시 점검해야 할 수 있습니다.', summary: '수수료와 광고비 조정이 동시에 일어나며 실질 이익률 관리 중요성이 커지고 있습니다.', image: 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=900', link: '#' },
+        { title: '짧은 숏폼 커머스 전환율 상승', impact: '상세페이지보다 영상형 진입 콘텐츠가 더 큰 역할을 할 가능성이 커지고 있습니다.', summary: '구매 전환이 짧은 영상과 후기 중심 콘텐츠에서 더 강하게 발생하는 흐름입니다.', image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=900', link: '#' },
+        { title: '재구매 유도형 CRM 강화 경쟁', impact: '신규 유입보다 기존 고객 재구매 설계가 더 큰 성과 차이를 만들 수 있습니다.', summary: '브랜드들은 할인보다 개인화 메시지와 리마인드 구조에 더 집중하고 있습니다.', image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=900', link: '#' },
+        { title: '반품 비용 상승 압박', impact: '카테고리별 반품률 관리와 상세정보 정확도가 더 중요해지고 있습니다.', summary: '운영비 상승으로 인해 반품 자체를 줄이는 UX와 상품 설명 설계가 중요해졌습니다.', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=900', link: '#' },
+        { title: '리뷰 신뢰도 경쟁 심화', impact: '리뷰 수보다 진짜 후기처럼 보이는 품질이 전환율에 더 큰 영향을 줄 수 있습니다.', summary: '구매자는 별점 평균보다 실사용 문장과 이미지 후기의 신뢰도를 더 중요하게 보고 있습니다.', image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=900', link: '#' },
+        { title: '브랜드몰 중심 데이터 회수 강화', impact: '플랫폼 의존도를 낮추기 위해 직접 고객 데이터를 확보하는 흐름이 강화되고 있습니다.', summary: '브랜드들은 자사몰, 멤버십, 구독 모델을 활용해 고객 접점을 직접 관리하려고 합니다.', image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=900', link: '#' }
+      ]
+    }
+  ]
+};
+
+function createKeyword(keyword) {
+  return `<span class="keyword">${keyword}</span>`;
+}
+
+function createItem(item) {
+  return `
+    <article class="item">
+      <div>
+        <div class="impact">${item.impact}</div>
+        <h3 class="serif headline">${item.title}</h3>
+        <p class="summary">${item.summary}</p>
+        <a href="${item.link}" class="link">기사 보기 →</a>
+      </div>
+      <div class="thumb-wrap">
+        <img src="${item.image}" alt="기사 대표 이미지" class="thumb" />
+      </div>
+    </article>
+  `;
+}
+
+function createSection(sector) {
+  return `
+    <section id="${sector.id}" class="section ${sector.className}">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker caps">${sector.kicker}</div>
+          <h2 class="serif section-title">${sector.title}</h2>
+        </div>
+        <div class="section-meta">${sector.meta} · 오늘의 핵심 뉴스 6개</div>
+      </div>
+      <div class="feed">${sector.items.map(createItem).join('')}</div>
+    </section>
+  `;
+}
+
+function createTab(sector, index) {
+  return `<a href="#${sector.id}" class="tab-btn ${index === 0 ? 'active' : ''}">${sector.title}</a>`;
+}
+
+function render() {
+  document.getElementById('keywordGrid').innerHTML = DATA.keywords.map(createKeyword).join('');
+  document.getElementById('sectionsRoot').innerHTML = DATA.sectors.map(createSection).join('');
+  document.getElementById('tabNav').innerHTML = DATA.sectors.map(createTab).join('');
+
+  const sections = document.querySelectorAll('.section');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) entry.target.classList.add('visible');
+    });
+  }, { threshold: 0.12 });
+  sections.forEach((section) => observer.observe(section));
+
+  const tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((item) => item.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+}
+
+render();
+</script>
+</body>
+</html>

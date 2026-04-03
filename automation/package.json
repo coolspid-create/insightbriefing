@@ -1,0 +1,17 @@
+{
+  "name": "ib-automation",
+  "version": "1.0.0",
+  "description": "Insight Briefing News Automation",
+  "main": "scheduler.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "axios": "^1.14.0",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "node-cron": "^3.0.3",
+    "openai": "^6.33.0",
+    "telegraf": "^4.16.3"
+  }
+}

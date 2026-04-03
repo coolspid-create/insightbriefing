@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+:root {
+  --cd-primary: #111827;
+  --cd-accent: #8B6B3F;
+  --cd-bg: #FFFFFF;
+  --cd-text-main: #374151;
+  --cd-text-light: #6B7280;
+  --cd-border: #E5E7EB;
+  
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Inter', 'Pretendard Variable', 'Pretendard', -apple-system, sans-serif;
+  
+  --animation-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--cd-bg);
+  color: var(--cd-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* Reusable Classes */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.serif-title {
+  font-family: var(--font-serif);
+}
+
+.thin-border {
+  border: 0.5px solid var(--cd-border);
+}
+
+.thin-border-bottom {
+  border-bottom: 0.5px solid var(--cd-border);
+}
+
+.thin-border-top {
+  border-top: 0.5px solid var(--cd-border);
+}
+
+/* Scroll Animation Utilities */
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(20px);
+  visibility: hidden;
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  will-change: opacity, visibility;
+}
+
+.fade-in-section.is-visible {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+}
