@@ -5,8 +5,8 @@ const config = require('./config');
 // 섹터별 텔레그램 봇 매핑 설정
 const BOT_CONFIG = {
   'sector-ren': {
-    token: process.env.TELEGRAM_BOT_TOKEN_REN,
-    chatId: process.env.TELEGRAM_CHAT_ID_REN,
+    token: process.env.TELEGRAM_BOT_TOKEN_REN || process.env.TELEGRAM_BOT_TOKEN,
+    chatId: process.env.TELEGRAM_CHAT_ID_REN || process.env.TELEGRAM_CHAT_ID,
     name: '신재생에너지(태양광)'
   },
   'sector-safe': {
