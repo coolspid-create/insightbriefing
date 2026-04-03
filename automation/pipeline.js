@@ -54,17 +54,32 @@ async function fetchAndProcessNews(targetSectorId = null) {
     if (global.updateStatus) global.updateStatus(sector.id, 'working', `리서치 엔진 가동: ${sector.name}`);
     console.log(`\n▶ [${sector.name}] 통합 리서치 가이드 기반 분석 시작`);
     
-    // 섹터 이름을 메인 키워드로 사용하여 네이버에서 우선 광범위하게 수집 후, AI가 상세 조건에 맞춰 필터링
-    const combinedQuery = sector.name;
-    if (global.updateStatus) global.updateStatus(sector.id, 'working', `네이버 뉴스 탐색 시작 (키워드: ${combinedQuery})`);
-    console.log(`   - 검색 엔진 쿼리 전송: "${combinedQuery}"`);
+    // 가이드라인에서 '주요 검색 키워드' 섹션만 정밀 추출
+    const keywordMatch = sector.researchSpecs.match(/# 주요 검색 키워드\s*:\s*([^\r\n]*)/i);
+    const keywords = keywordMatch ? keywordMatch[1].split(',').map(k => k.trim()).filter(k => k) : [];
     
-    // 1. 네이버에서 실제 뉴스 수집
-    let rawNewsData = await fetchNaverNews(combinedQuery);
+    if (keywords.length > 0) {
+      console.log(`   💡 가이드라인 키워드 감지: [${keywords.join(', ')}]`);
+    }
+
+    // 검색 시도 루프 (키워드 기반 -> 실패 시 섹터명 폴백)
+    let rawNewsData = [];
+    const searchAttempts = keywords.length > 0 ? [keywords.join(' '), sector.name] : [sector.name];
+
+    for (const query of searchAttempts) {
+      if (global.updateStatus) global.updateStatus(sector.id, 'working', `네이버 뉴스 탐색 시작 (쿼리: ${query})`);
+      console.log(`   - 검색 엔진 쿼리 전송: "${query}"`);
+      
+      const newsItems = await fetchNaverNews(query);
+      if (newsItems && newsItems.length > 0) {
+        rawNewsData = newsItems;
+        break; // 검색 결과 확보 시 다음으로 진행
+      }
+    }
     
     if (rawNewsData.length === 0) {
       if (global.updateStatus) global.updateStatus(sector.id, 'idle', `검색 결과 없음 (스킵)`);
-      console.log(`   ⚠️ 검색 결과가 없습니다. 스킵합니다.`);
+      console.log(`   ⚠️ 모든 시도에도 불구하고 검색 결과가 없습니다. 스킵합니다.`);
       results[sector.id] = [];
       continue;
     }
