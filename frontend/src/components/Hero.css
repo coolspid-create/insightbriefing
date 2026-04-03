@@ -89,18 +89,26 @@
 .hero-headline {
   font-size: 52px;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.12;
   color: #111827;
-  letter-spacing: -0.04em;
-  margin-bottom: 24px;
+  letter-spacing: -0.05em;
+  margin-bottom: 26px;
 }
 
 .text-highlight {
-  background: linear-gradient(135deg, #c5a67a 0%, #8b6b3f 100%);
+  background: linear-gradient(135deg, #c5a67a 0%, #b8860b 35%, #8b6b3f 60%, #c5a67a 100%);
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: #8b6b3f; /* fallback */
+  color: #8b6b3f;
+  animation: textShine 4s linear infinite;
+}
+
+@keyframes textShine {
+  to {
+    background-position: 200% center;
+  }
 }
 
 .hero-subheadline {
@@ -290,8 +298,10 @@
   flex: 1; /* 남은 하단 공간 꽉 채우기 */
   margin: 0; /* 여백 제거하여 꽉 차게 */
   width: 100%;
+  min-height: 140px; /* 이미지 최소 높이 강제 확보 */
   overflow: hidden;
   position: relative;
+  background-color: #f3f4f6; /* 로딩 전 배경색 */
   border-top: 1px solid #f3f4f6;
 }
 

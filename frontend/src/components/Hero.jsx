@@ -213,8 +213,13 @@ const Hero = ({ onOpenTelegram, lastUpdated, allNews }) => {
                   </div>
                   <div className="cp-img">
                     <img 
-                      src={currentSlideData.image || "https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=500&auto=format&fit=crop"} 
+                      src={currentSlideData.image && currentSlideData.image.startsWith('http') ? currentSlideData.image : "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=500&auto=format&fit=crop"} 
                       alt={currentSlideData.title} 
+                      onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=500&auto=format&fit=crop";
+                      }}
+                      loading="lazy"
                     />
                     <div className="cp-img-overlay"></div>
                   </div>
