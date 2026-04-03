@@ -323,17 +323,65 @@
 .ct-stars .off { color: #e5e7eb; }
 
 /* Responsive adjustments */
-@media (max-width: 1150px) {
-  .hero-container { flex-direction: column; text-align: center; gap: 60px; padding-top: 40px; }
-  .hero-text-area { flex: none; align-items: center; width: 100%; max-width: 600px; }
-  .hero-visual-area { justify-content: center; }
-}
-
-@media (max-width: 640px) {
-  .hero-grid { 
-    grid-template-columns: 1fr; 
-    grid-template-rows: auto;
+@media (max-width: 991px) {
+  .hero-section {
+    padding: 60px 0;
+    min-height: auto;
+  }
+  .hero-container { 
+    flex-direction: column; 
+    text-align: center; 
+    gap: 40px; 
+    padding: 0 24px;
+  }
+  .hero-text-area { 
+    flex: none; 
+    align-items: center; 
+    width: 100%; 
+    max-width: 100%; 
+  }
+  .hero-visual-area { 
+    justify-content: center; 
     width: 100%;
   }
-  .g-card { grid-column: 1 !important; grid-row: auto !important; height: auto !important; min-height: 150px;}
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 40px 0 60px;
+  }
+  
+  .hero-visual-area {
+    display: none; /* 모바일에서 카드 제거하여 스크롤 최적화 */
+  }
+
+  .hero-headline {
+    font-size: 34px;
+    margin-bottom: 16px;
+    word-break: keep-all;
+  }
+
+  .hero-subheadline {
+    font-size: 15px;
+    margin-bottom: 24px;
+    max-width: 320px;
+  }
+
+  .hero-eyebrow {
+    margin-bottom: 20px;
+    padding: 6px 12px;
+  }
+
+  .hero-timestamp {
+    margin-bottom: 30px;
+    font-size: 13px;
+    justify-content: center;
+  }
+
+  .cta-button {
+    padding: 16px 28px;
+    font-size: 15px;
+    width: 100%; /* 모바일에서 버튼 꽉 차게 */
+    justify-content: center;
+  }
 }
