@@ -12,7 +12,10 @@ const { fetchAndProcessNews } = require('./pipeline');
 const { broadcastToTelegram } = require('./telegram');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['https://insightbriefing.vercel.app', 'http://localhost:5173'],
+  credentials: true
+}));
 app.use(bodyParser.json());
 
 // Supabase Initialization
