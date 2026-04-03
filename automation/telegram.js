@@ -32,13 +32,18 @@ const BOT_CONFIG = {
 };
 
 async function broadcastToTelegram(sectorId, newsItems) {
-  if (!newsItems || newsItems.length === 0) return;
+  console.log(`[Telegram Debug] ${sectorId} 섹터 발송 시도 중... (기사 수: ${newsItems?.length || 0})`);
+  
+  if (!newsItems || newsItems.length === 0) {
+    console.log(`[Telegram Status] ${sectorId} 섹터에 발송할 기사가 없습니다. 수집을 먼저 진행해 주세요.`);
+    return;
+  }
   
   const botInfo = BOT_CONFIG[sectorId];
 
-  // 연동 정보가 없는 섹터(예: 신재생에너지)는 발송 제외
+  // 연동 정보가 없는 섹터는 발송 제외
   if (!botInfo || !botInfo.token || !botInfo.chatId) {
-    console.log(`[Telegram] '${sectorId}' 섹터는 연동된 텔레그램 정보가 없거나 제외 대상입니다. 스킵합니다.`);
+    console.log(`[Telegram Error] '${sectorId}' 섹터의 봇 설정(Token/ChatID)이 누락되었습니다. .env 설정을 확인하세요.`);
     return;
   }
 
