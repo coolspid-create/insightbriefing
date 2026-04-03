@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
   const [token, setToken] = useState(sessionStorage.getItem('adminToken') || ''); 
   const [password, setPassword] = useState('');
   const [config, setConfig] = useState(null);
@@ -11,6 +12,8 @@ const AdminDashboard = () => {
   const [sendingTelegramId, setSendingTelegramId] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [liveStatus, setLiveStatus] = useState({});
+  const [isBulkResearching, setIsBulkResearching] = useState(false);
+  const [isBulkSending, setIsBulkSending] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -23,7 +26,7 @@ const AdminDashboard = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:3002/api/login', {
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
@@ -43,7 +46,7 @@ const AdminDashboard = () => {
   const fetchStatus = async () => {
     if (!token) return;
     try {
-      const res = await fetch('http://localhost:3002/api/status');
+      const res = await fetch(`${API_BASE_URL}/api/status`);
       const data = await res.json();
       setLiveStatus(data);
     } catch (e) {
@@ -54,7 +57,7 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     if (!token) return;
     try {
-      const cfgRes = await fetch('http://localhost:3002/api/config', {
+      const cfgRes = await fetch(`${API_BASE_URL}/api/config`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (cfgRes.status === 401) { logout(); return; }
@@ -64,7 +67,7 @@ const AdminDashboard = () => {
         setSelectedSectorId(cfg.sectors[0].id);
       }
 
-      const dbRes = await fetch('http://localhost:3002/api/news', {
+      const dbRes = await fetch(`${API_BASE_URL}/api/news`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const db = await dbRes.json();
@@ -84,7 +87,7 @@ const AdminDashboard = () => {
     if (!window.confirm('이 섹터의 최신 뉴스를 실시간으로 다시 수집하고 AI 분석 파이프라인을 가동하시겠습니까?')) return;
     setUpdatingId(sectorId);
     try {
-      const res = await fetch(`http://localhost:3002/api/research/${sectorId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/research/${sectorId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -101,7 +104,7 @@ const AdminDashboard = () => {
     if (!window.confirm('현재 저장된 뉴스를 바탕으로 텔레그램 발송을 진행하시겠습니까?')) return;
     setSendingTelegramId(sectorId);
     try {
-      const res = await fetch(`http://localhost:3002/api/telegram/${sectorId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/telegram/${sectorId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -121,7 +124,7 @@ const AdminDashboard = () => {
     const sectorId = selectedSectorId;
     setSavingId(sectorId);
     try {
-      const response = await fetch('http://localhost:3002/api/config', {
+      const response = await fetch(`${API_BASE_URL}/api/config`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -139,9 +142,44 @@ const AdminDashboard = () => {
     setSavingId(null);
   };
 
+  const researchAllSectors = async () => {
+    if (!window.confirm('모든 섹터의 뉴스를 순차적으로 다시 수집하시겠습니까? (이 작업은 몇 분 정도 소요될 수 있습니다.)')) return;
+    setIsBulkResearching(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/research/all`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      alert(data.message || '전체 섹터 뉴스 수집 완료!');
+      fetchData();
+    } catch (e) {
+      alert('일괄 수집 중 오류: ' + e.message);
+    }
+    setIsBulkResearching(false);
+  };
+
+  const sendTelegramAllSectors = async () => {
+    if (!window.confirm('모든 섹터(신재생 제외)에 현재 저장된 뉴스를 텔레그램으로 일괄 발송하시겠습니까?')) return;
+    setIsBulkSending(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/telegram/all`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      alert(data.message || '전체 섹터 텔레그램 발송 완료!');
+    } catch (e) {
+      alert('일괄 발송 중 오류: ' + e.message);
+    }
+    setIsBulkSending(false);
+  };
+
   const saveNews = async () => {
     try {
-       const res = await fetch('http://localhost:3002/api/news', {
+       const res = await fetch(`${API_BASE_URL}/api/news`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -212,6 +250,30 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="admin-main">
+        {/* Bulk Action Bar */}
+        <div className="bulk-action-bar">
+          <div className="bulk-info">
+            <span className="bulk-title">🚀 전체 섹터 일괄 액션</span>
+            <span className="bulk-desc">모든 산업 분야의 파이프라인을 한 번에 제어합니다. (신재생에너지 발송 제외)</span>
+          </div>
+          <div className="bulk-buttons">
+            <button 
+              className="btn btn-bulk btn-bulk-research"
+              onClick={researchAllSectors}
+              disabled={isBulkResearching || isBulkSending}
+            >
+              {isBulkResearching ? '⏳ 일괄 수집 중...' : '🔄 전체 섹터 뉴스 수집'}
+            </button>
+            <button 
+              className="btn btn-bulk btn-bulk-telegram"
+              onClick={sendTelegramAllSectors}
+              disabled={isBulkResearching || isBulkSending}
+            >
+              {isBulkSending ? '⏳ 일괄 발송 중...' : '✈️ 전체 섹터 텔레그램 발송'}
+            </button>
+          </div>
+        </div>
+
         <header className="main-header">
           <div className="header-title">
             <h2>{currentSector?.name}</h2>

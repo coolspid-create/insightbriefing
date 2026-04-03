@@ -409,3 +409,57 @@
   background-color: #1f2937;
   transform: translateY(-1px);
 }
+
+/* Bulk Action Bar */
+.bulk-action-bar {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background-color: #f7f9fc;
+}
+
+.bulk-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bulk-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.bulk-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.bulk-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-bulk {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.btn-bulk-research {
+  background-color: #111827;
+  color: white;
+}
+
+.btn-bulk-telegram {
+  background-color: #0088cc;
+  color: white;
+}
+
+.btn-bulk:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

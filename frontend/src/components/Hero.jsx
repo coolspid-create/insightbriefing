@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowRight, Activity, Zap, BarChart3, TrendingUp, Globe, ShieldCheck } from 'lucide-react';
+import { Sparkles, ArrowRight, Activity, TrendingUp } from 'lucide-react';
 import './Hero.css';
 
 const Hero = ({ onOpenTelegram }) => {
@@ -15,168 +15,188 @@ const Hero = ({ onOpenTelegram }) => {
     setCurrentTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} 기준`);
   }, []);
 
-  // Framer Motion Variants
   const containerVars = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.05,
-      }
+      transition: { staggerChildren: 0.1, delayChildren: 0.1 }
     }
   };
 
   const itemVars = {
-    hidden: { opacity: 0, y: 15 },
+    hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { type: 'spring', damping: 20, stiffness: 90 } }
   };
 
-  const floatingTransition = (duration, delay = 0) => ({
-    y: {
-      repeat: Infinity,
+  // Floating animation helper
+  const floatAnim = (duration, delay) => ({
+    animate: { y: [0, -12, 0] },
+    transition: {
       duration: duration,
+      repeat: Infinity,
       ease: "easeInOut",
-      repeatType: "reverse",
       delay: delay
-    },
-    opacity: { duration: 0.7, delay: delay * 0.5 + 0.3 }
+    }
   });
 
   return (
-    <section className="hero thin-border-bottom relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="hero-glow-blob blob-1"></div>
-      <div className="hero-glow-blob blob-2"></div>
+    <section className="hero-section">
+      <div className="hero-bg-blobs">
+        <div className="blob blob-main"></div>
+        <div className="blob blob-aside"></div>
+      </div>
 
-      <div className="container hero-layout">
-        
-        {/* LEFT: Text Content */}
+      <div className="hero-container">
+        {/* Left: Text Area */}
         <motion.div 
-          className="hero-content"
+          className="hero-text-area"
           variants={containerVars}
           initial="hidden"
           animate="visible"
         >
-          <motion.div variants={itemVars} className="hero-badge">
-            <span className="badge-icon"><Sparkles size={14} /></span>
-            <span>DAILY INDUSTRY INTELLIGENCE</span>
+          <motion.div variants={itemVars} className="hero-eyebrow">
+            <Sparkles size={14} className="eyebrow-icon" />
+            DAILY INDUSTRY INTELLIGENCE
           </motion.div>
           
-          <motion.h1 variants={itemVars} className="hero-title">
+          <motion.h1 variants={itemVars} className="hero-headline">
             지난 24시간,<br />
-            <span className="title-highlight">산업의 결정적 시그널</span>만<br />
+            <span className="text-highlight">산업의 결정적 시그널</span>만<br />
             담았습니다
           </motion.h1>
           
-          <motion.p variants={itemVars} className="hero-desc">
-            매일 오전, 5대 핵심 산업에서 벌어지는 핵심 뉴스를 AI가 수집하고<br className="desktop-only" />
-            전문가가 선별합니다. 업종별 핵심 뉴스 브리핑을<br className="desktop-only" /> 
-            3분 안에 파악하세요.
+          <motion.p variants={itemVars} className="hero-subheadline">
+            매일 오전, 5대 핵심 산업에서 벌어지는 핵심 뉴스를 AI가 수집하고 전문가가 선별합니다. 
+            업종별 핵심 뉴스 브리핑을 확인하세요.
           </motion.p>
           
-          <motion.div variants={itemVars} className="hero-meta">
-            <span className="hero-date">{currentDate}</span>
-            <span className="hero-divider">|</span>
-            <span className="hero-time">{currentTime}</span>
+          <motion.div variants={itemVars} className="hero-timestamp">
+            <span className="timestamp-date">{currentDate}</span>
+            <span className="timestamp-divider">|</span>
+            <span className="timestamp-time">{currentTime}</span>
           </motion.div>
 
-          <motion.div variants={itemVars} className="hero-actions">
-             <button className="subscribe-btn" onClick={onOpenTelegram}>
+          <motion.div variants={itemVars} className="hero-cta-wrapper">
+             <button className="cta-button" onClick={onOpenTelegram}>
                 <span>3분 브리핑 구독하기</span>
-                <ArrowRight size={18} className="btn-icon" />
+                <ArrowRight size={18} className="cta-icon" />
              </button>
-             <p className="hero-disclaimer">
+             <p className="cta-note">
                실시간 수집된 데이터는 AI가 요약하여 매일 아침 제공됩니다.
              </p>
           </motion.div>
         </motion.div>
 
-        {/* RIGHT: Floating Visuals */}
-        <div className="hero-visual">
+        {/* Right: Tightly Packed Masonry Grid */}
+        <div className="hero-visual-area">
           <AnimatePresence>
-            {/* Card 1: Top Right - Sector Status */}
             <motion.div 
-              className="floating-card card-sectors"
-              initial={{ y: 0, opacity: 0 }}
-              animate={{ y: [0, 8, 0], opacity: 1 }}
-              transition={floatingTransition(5, 0.2)}
-              whileHover={{ scale: 1.05, zIndex: 10, transition: { duration: 0.2 } }}
+              className="hero-grid"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             >
-              <div className="card-top-label">System Status</div>
-              <div className="card-padding">
-                <span className="stat-label">SECTORS ANALYZED</span>
-                <div className="stat-value" style={{marginBottom: '12px', fontSize: '20px'}}>5 / 5</div>
-                <div className="status-bars">
-                  <div className="status-bar active"></div>
-                  <div className="status-bar active"></div>
-                  <div className="status-bar active"></div>
-                  <div className="status-bar active"></div>
-                  <div className="status-bar active"></div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Card 2: Center Left - Report Preview (Solar Focus) */}
-            <motion.div 
-              className="floating-card card-insight"
-              initial={{ y: 0, opacity: 0 }}
-              animate={{ y: [0, -6, 0], opacity: 1 }}
-              transition={floatingTransition(6, 0.6)}
-              whileHover={{ scale: 1.05, zIndex: 10, transition: { duration: 0.2 } }}
-            >
-              <div className="card-top-label">Briefing Preview</div>
-              <div className="card-split-content">
-                <div className="card-left-content">
-                  <div className="card-sub-label">ENERGY / RENEWABLE</div>
-                  <h3 className="card-main-title">태양광 발전<br/>수요 폭증</h3>
-                </div>
-                <div className="card-right-stats">
-                  <div className="stat-block">
-                    <span className="stat-label">Impact</span>
-                    <span className="stat-value">High</span>
-                  </div>
-                  <div className="stat-block">
-                    <span className="stat-label">Growth</span>
-                    <span className="stat-value">+15%</span>
+              
+              {/* Card 1: Tall Preview (Left) */}
+              <motion.div 
+                className="g-card card-preview hover-lift"
+                {...floatAnim(5.5, 0)}
+              >
+                <div className="card-lbl">BRIEFING PREVIEW</div>
+                <div className="cp-body">
+                  <div className="cp-meta">ENERGY / RENEWABLE</div>
+                  <h3 className="cp-title">태양광 발전<br/>수요 폭증</h3>
+                  <div className="cp-stat">
+                    <span>Impact</span>
+                    <strong>High</strong>
                   </div>
                 </div>
-              </div>
-              <div className="card-visual-area no-dot">
-                <img src="/assets/solar-briefing.png" alt="Solar Farm Preview" className="preview-image" />
-              </div>
-            </motion.div>
-
-            {/* Card 3: Bottom Right - Real-time tracking */}
-            <motion.div 
-              className="floating-card card-tracking"
-              initial={{ y: 0, opacity: 0 }}
-              animate={{ y: [0, -10, 0], opacity: 1 }}
-              transition={floatingTransition(5.5, 0.4)}
-              whileHover={{ scale: 1.05, zIndex: 10, transition: { duration: 0.2 } }}
-            >
-              <div className="card-header-icon">
-                <div className="icon-box"><Activity size={12} color="#fff" /></div>
-                <span>Live tracking</span>
-              </div>
-              <div className="tracking-progress">
-                <div className="tracking-fill"></div>
-              </div>
-              <div className="tracking-details">
-                <span className="stat-label">KEY FOCUS</span>
-                <p className="tracking-text">AI 반도체 수요 증가와<br/>주요 기업 대응 전략</p>
-                <div className="tracking-stars">
-                  <span className="star active">★</span>
-                  <span className="star active">★</span>
-                  <span className="star active">★</span>
-                  <span className="star">★</span>
-                  <span className="star">★</span>
+                <div className="cp-img">
+                  <img src="https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=500&auto=format&fit=crop" alt="Solar Farm" />
                 </div>
-              </div>
+              </motion.div>
+
+              {/* Card 2: Wide Status (Top Right) */}
+              <motion.div 
+                className="g-card card-status hover-lift"
+                {...floatAnim(6.2, 0.5)}
+              >
+                <div className="card-lbl">System Status</div>
+                <div className="cs-split">
+                  <div className="cs-col">
+                    <div className="cs-title">Sectors Analyzed</div>
+                    <div className="cs-val">5 / 5</div>
+                  </div>
+                  <div className="cs-col">
+                    <div className="cs-title">Pipelines</div>
+                    <div className="cs-val">12</div>
+                  </div>
+                </div>
+                <div className="cs-pattern"></div>
+              </motion.div>
+
+              {/* Card 3: Square Solid (Center) */}
+              <motion.div 
+                className="g-card card-pulse hover-lift"
+                {...floatAnim(5.8, 1.2)}
+              >
+                <div className="pulse-inner">
+                  <div className="pulse-pattern"></div>
+                  <Activity color="rgba(255,255,255,0.9)" size={32} />
+                  <span>Real-time<br/>AI Sync</span>
+                </div>
+              </motion.div>
+
+              {/* Card 4: Tall Summary (Right) */}
+              <motion.div 
+                className="g-card card-summary hover-lift"
+                {...floatAnim(6.5, 0.8)}
+              >
+                <div className="card-lbl">SECTOR TREND</div>
+                <div className="csum-body">
+                  <div className="trend-item">
+                    <div className="t-name">Tech</div>
+                    <div className="t-val up">+5.2%</div>
+                  </div>
+                  <div className="trend-item">
+                    <div className="t-name">Logistics</div>
+                    <div className="t-val down">-1.4%</div>
+                  </div>
+                  <div className="trend-item">
+                    <div className="t-name">Energy</div>
+                    <div className="t-val up">+3.1%</div>
+                  </div>
+                </div>
+                <div className="csum-img">
+                  <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=400&auto=format&fit=crop" alt="Lab" />
+                </div>
+              </motion.div>
+
+              {/* Card 5: Wide Tracking (Bottom Left) */}
+              <motion.div 
+                className="g-card card-tracking hover-lift"
+                {...floatAnim(6, 0.2)}
+              >
+                <div className="ct-body">
+                  <div className="ct-head">
+                    <div className="ct-badge"><TrendingUp size={12}/> Live tracking</div>
+                    <div className="ct-progress"><div className="bar"></div></div>
+                  </div>
+                  <div className="ct-content">
+                    <div className="ct-text">
+                      <span className="lbl">TOPIC</span>
+                      <p>AI 반도체 수요 및 주요 기업 대응 전략</p>
+                    </div>
+                    <div className="ct-stars">
+                      ★ ★ ★ <span className="off">★ ★</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
             </motion.div>
           </AnimatePresence>
         </div>
-        
       </div>
     </section>
   );

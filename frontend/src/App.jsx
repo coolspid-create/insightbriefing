@@ -30,7 +30,8 @@ const MainLayout = () => {
     sections.forEach(section => observer.observe(section));
 
     // Fetch news from API (Backend Database)
-    fetch('http://localhost:3002/api/news')
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+    fetch(`${API_BASE_URL}/api/news`)
       .then(res => res.json())
       .then(data => setNewsData(data))
       .catch(err => console.error("데이터 로드 실패:", err));
