@@ -71,9 +71,15 @@ const AdminDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const db = await dbRes.json();
-      setNewsDb(db);
+      
+      // 고도화된 응답 구조({ news: ..., lastUpdated: ... })에 대응
+      if (db && db.news) {
+        setNewsDb(db.news);
+      } else {
+        setNewsDb(db); // 폴백: 이전 형식인 경우
+      }
     } catch (e) {
-      console.error(e);
+      console.error("데이터 로드 중 오류:", e);
     }
   };
 
