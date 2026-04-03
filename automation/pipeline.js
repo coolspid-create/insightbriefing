@@ -14,17 +14,26 @@ async function fetchNaverNews(query) {
   try {
     const url = 'https://openapi.naver.com/v1/search/news.json';
     const response = await axios.get(url, {
-      params: { query: query, display: 30, sort: 'sim' }, // 최상위 30개 수집
+      params: { query: query, display: 30, sort: 'sim' },
       headers: {
         'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
         'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
       }
     });
-    return response.data.items.map(item => ({
-      title: item.title.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"'), // HTML 태그 및 따옴표 특수문자 제거
-      description: item.description.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"'),
-      link: item.link
-    }));
+
+    return response.data.items.map(item => {
+      // 제목에서 언론사 추출 시도 (예: "삼성전자 - [파이낸셜뉴스]")
+      const title = item.title.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"');
+      const description = item.description.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"');
+      
+      // 네이버 뉴스 검색 결과의 link 주소에서 언론사를 식별할 수 있는 정보를 AI에게 전달하기 위해 포함
+      return {
+        title,
+        description,
+        link: item.link,
+        original_link: item.originallink || item.link
+      };
+    });
   } catch (error) {
     console.error(`❌ 네이버 뉴스 API 조회 오류 (${query}):`, error.message);
     return [];
@@ -112,21 +121,23 @@ async function fetchAndProcessNews(targetSectorId = null) {
           {
             role: "system",
             content: `당신은 탁월한 통찰력을 지닌 C-Level 산업 전략가입니다. 제공된 뉴스 목록과 다음의 리서치 가이드를 바탕으로 경영진 브리핑을 작성합니다.\n${priorityContext}${researchGuide}
-**중요: 서로 다른 8개의 주제 혹은 관점을 지닌 뉴스를 선정하며, 동일한 사건에 대한 단순 타 언론사 보도(중복 기사)는 절대 피하십시오.**
-반드시 올바른 JSON 규칙을 따르는 다음의 객체 형태로 응답해야 합니다.
+**절대적인 규칙:**
+1. **언론사명 날조 금지**: 각 기사의 '원본 언론사 이름'을 정확히 식별하십시오. 만약 제목이나 본문에 언론사명이 명시되지 않았다면, 도메인 주소(link) 등을 분석하여 실제 언론사명만 기재하십시오. 확신이 없다면 [뉴스] 와 같이 일반적인 명칭을 사용하되, 절대 가상의 이름을 지어내지 마십시오.
+2. **중복 금지**: 서로 다른 주제 8개를 선정하고, 타 언론사의 동일 보도(중복 기사)는 배제하십시오.
+3. **JSON 출력 형식**: 반드시 다음의 객체 형태로만 응답하십시오.
 {
   "news": [
     {
-      "title": "[언론사명] 명확하고 전문적인 기사 제목 (예: [파이낸셜뉴스] 삼성전자 깜짝 실적)",
-      "summary": "기사의 주요 내용 요약 (1~2문장)",
-      "link": "원본 기사 링크"
+      "title": "[언론사명] 실제 제목을 가공한 전문적인 헤드라인",
+      "summary": "1~2문장의 비즈니스 임팩트 요약",
+      "link": "기사 원본 URL"
     }
   ]
 }`
           },
           {
             role: "user",
-            content: `다음 뉴스 목록 중 전략적 가치가 높은 8개를 선정하여 브리핑 하십시오:\n${JSON.stringify(finalCandidates)}`
+            content: `다음 뉴스 데이터(제목, 내용, 링크) 중 가장 가치 있는 8개를 엄선하십시오:\n${JSON.stringify(finalCandidates)}`
           }
         ],
         response_format: { type: "json_object" }
