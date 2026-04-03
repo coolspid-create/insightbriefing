@@ -80,12 +80,24 @@ async function fetchAndProcessNews(targetSectorId = null) {
       const cleanTitle = item.title.replace(/[^\wㄱ-ㅎㅏ-ㅣ가-힣]/g, '').substring(0, 15);
       if (seenTitles.has(cleanTitle)) continue;
 
-      // 실시간 이미지 추출 (중복 판단용)
+      // 실시간 이미지 및 언론사 정보 추출 (중복 판단 및 정확도 향상용)
       let currentImage = null;
+      let publisherName = null;
       try {
-        const imgRes = await axios.get(item.link, { timeout: 2000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const match = imgRes.data.match(/<meta[^>]*property=['"]og:image['"][^>]*content=['"]([^'"]+)['"]/i);
-        if (match && match[1]) currentImage = match[1];
+        const pageRes = await axios.get(item.link, { 
+          timeout: 3000, 
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } 
+        });
+        const html = pageRes.data;
+        
+        // 이미지 추출 (다양한 메타 태그 대응)
+        const imgMatch = html.match(/<meta[^>]*property=['"](?:og:image|twitter:image)['"][^>]*content=['"]([^'"]+)['"]/i) ||
+                        html.match(/<meta[^>]*name=['"](?:twitter:image|image)['"][^>]*content=['"]([^'"]+)['"]/i);
+        if (imgMatch && imgMatch[1]) currentImage = imgMatch[1];
+
+        // 언론사 이름 추출 (og:site_name 활용)
+        const siteMatch = html.match(/<meta[^>]*property=['"]og:site_name['"][^>]*content=['"]([^'"]+)['"]/i);
+        if (siteMatch && siteMatch[1]) publisherName = siteMatch[1];
       } catch (e) { /* ignore */ }
 
       // 동일 이미지를 사용하는 기사(동일 보도자료) 걸러내기
@@ -94,7 +106,8 @@ async function fetchAndProcessNews(targetSectorId = null) {
         continue;
       }
 
-      item.image = currentImage; // 수집한 김에 데이터에 박아둠
+      item.image = currentImage; // 수집한 데이터에 이미지 저장
+      item.publisher = publisherName; // 수집한 데이터에 언론사명 저장
       seenTitles.add(cleanTitle);
       if (currentImage) seenImages.add(currentImage);
       finalCandidates.push(item);
@@ -122,7 +135,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
             role: "system",
             content: `당신은 탁월한 통찰력을 지닌 C-Level 산업 전략가입니다. 제공된 뉴스 목록과 다음의 리서치 가이드를 바탕으로 경영진 브리핑을 작성합니다.\n${priorityContext}${researchGuide}
 **절대적인 규칙:**
-1. **언론사명 날조 금지**: 각 기사의 '원본 언론사 이름'을 정확히 식별하십시오. 만약 제목이나 본문에 언론사명이 명시되지 않았다면, 도메인 주소(link) 등을 분석하여 실제 언론사명만 기재하십시오. 확신이 없다면 [뉴스] 와 같이 일반적인 명칭을 사용하되, 절대 가상의 이름을 지어내지 마십시오.
+1. **언론사명 날조 절대 금지**: 각 기사의 'publisher' 필드에 있는 이름을 우선적으로 사용하십시오. 만약 'publisher' 필드가 비어있다면 제목 대괄호 [ ] 안의 내용이나 link의 도메인을 분석하여 실제 언론사명만 짧게 기재하십시오. (예: [매일경제], [IT조선], [연합뉴스] 등). 기사 마지막의 기자 이름 등은 절대 언론사로 오인하여 기재하지 마십시오.
 2. **중복 금지**: 서로 다른 주제 8개를 선정하고, 타 언론사의 동일 보도(중복 기사)는 배제하십시오.
 3. **JSON 출력 형식**: 반드시 다음의 객체 형태로만 응답하십시오.
 {
@@ -137,7 +150,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
           },
           {
             role: "user",
-            content: `다음 뉴스 데이터(제목, 내용, 링크) 중 가장 가치 있는 8개를 엄선하십시오:\n${JSON.stringify(finalCandidates)}`
+            content: `다음 뉴스 데이터(제목, 내용, 링크, 추출된 언론사명) 중 가장 가치 있는 8개를 엄선하십시오:\n${JSON.stringify(finalCandidates)}`
           }
         ],
         response_format: { type: "json_object" }
