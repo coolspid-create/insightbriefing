@@ -330,19 +330,21 @@ async function dailyAutoWorkflow() {
         updateStatus('all', 'working', startMsg);
         
         const allData = await fetchAndProcessNews(sector.id);
-        const sectorData = allData[sector.id];
+        const sectorData = allData[sector.id] || [];
         
         await supabase.from('news_items').delete().eq('sector_id', sector.id);
         await supabase.from('news_items').insert({ sector_id: sector.id, content: sectorData });
 
         // [RAG 고도화용] 히스토리 아카이브 저장 (이미지 제외하여 용량 최적화)
-        const historyData = sectorData.map(({ image, ...rest }) => rest);
-        await supabase.from('news_history').insert({
-          sector_id: sector.id,
-          content: historyData
-        });
+        if (sectorData.length > 0) {
+          const historyData = sectorData.map(({ image, ...rest }) => rest);
+          await supabase.from('news_history').insert({
+            sector_id: sector.id,
+            content: historyData
+          });
+        }
         
-        const completeMsg = `✅ [자동-Bulk] ${sector.name} 수집 완료!`;
+        const completeMsg = `✅ [자동-Bulk] ${sector.name} 수집 완료! (${sectorData.length}건)`;
         updateStatus(sector.id, 'idle', completeMsg);
         updateStatus('all', 'working', completeMsg);
       } catch (err) {
