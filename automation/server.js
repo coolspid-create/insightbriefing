@@ -8,6 +8,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
+const cron = require('node-cron');
 const { fetchAndProcessNews } = require('./pipeline');
 const { broadcastToTelegram } = require('./telegram');
 
@@ -289,6 +290,63 @@ app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
       res.status(500).json({ error: error.message });
     }
   }
+});
+
+// --- DAILY AUTOMATION SCHEDULER (9:00 AM KST) ---
+async function dailyAutoWorkflow() {
+  console.log(`[Scheduler] ⏰ 오전 9시 정기 리서치 및 발송을 시작합니다.`);
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    
+    // 1. 전체 섹터 뉴스 수집
+    updateStatus('all', 'working', '🌊 [자동] 모든 섹터 뉴스 일괄 수집을 시작합니다.');
+    for (const sector of config.sectors) {
+      try {
+        const startMsg = `🔄 [자동-Bulk] ${sector.name} 수집 시작...`;
+        updateStatus(sector.id, 'working', startMsg);
+        updateStatus('all', 'working', startMsg);
+        
+        const allData = await fetchAndProcessNews(sector.id);
+        const sectorData = allData[sector.id];
+        
+        await supabase.from('news_items').delete().eq('sector_id', sector.id);
+        await supabase.from('news_items').insert({ sector_id: sector.id, content: sectorData });
+        
+        const completeMsg = `✅ [자동-Bulk] ${sector.name} 수집 완료!`;
+        updateStatus(sector.id, 'idle', completeMsg);
+        updateStatus('all', 'working', completeMsg);
+      } catch (err) {
+        updateStatus(sector.id, 'idle', `❌ [자동-Error] ${sector.name}: ${err.message}`);
+      }
+    }
+    
+    // 2. 전체 섹터 텔레그램 발송
+    updateStatus('all', 'working', '✈️ [자동] 모든 섹터 텔레그램 일괄 발송을 시작합니다.');
+    for (const sector of config.sectors) {
+      try {
+        updateStatus(sector.id, 'working', `📡 [자동-Bulk] ${sector.name} 발송 중...`);
+        const { data } = await supabase.from('news_items').select('content').eq('sector_id', sector.id).single();
+        if (data && data.content) {
+          await broadcastToTelegram(sector.id, data.content);
+          updateStatus(sector.id, 'idle', `✅ [자동-Bulk] ${sector.name} 발송 성공!`);
+          updateStatus('all', 'working', `✅ [자동-Bulk] ${sector.name} 발송 성공!`);
+        }
+      } catch (err) {
+        updateStatus(sector.id, 'idle', `❌ [자동-Error] ${sector.name}: 발송 실패`);
+      }
+    }
+    
+    updateStatus('all', 'idle', '🏁 [자동] 오늘의 정기 브리핑 완료되었습니다.');
+    console.log(`[Scheduler] Daily automation completed successfully.`);
+  } catch (error) {
+    console.error(`[Scheduler Error]`, error);
+  }
+}
+
+// 매일 오전 9시(한국 시간) 실행
+cron.schedule('0 9 * * *', dailyAutoWorkflow, {
+  scheduled: true,
+  timezone: "Asia/Seoul"
 });
 
 const PORT = process.env.PORT || 3002;
