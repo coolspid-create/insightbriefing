@@ -1,9 +1,34 @@
 export const SECTORS = [
-  { id: 'sector-ren', name: '신재생에너지(태양광)', tabText: '신재생에너지(태양광)' },
-  { id: 'sector-safe', name: '제품안전', tabText: '제품안전' },
-  { id: 'sector-const', name: '인테리어·건설', tabText: '인테리어·건설' },
-  { id: 'sector-ai', name: 'AI·테크', tabText: 'AI·테크' },
-  { id: 'sector-comm', name: '커머스', tabText: '커머스' }
+  { 
+    id: 'sector-ren', 
+    name: '신재생에너지(태양광)', 
+    tabText: '신재생에너지(태양광)',
+    telegramUrl: 'https://t.me/+mDkppUku81tkMWQ1'
+  },
+  { 
+    id: 'sector-safe', 
+    name: '제품안전', 
+    tabText: '제품안전',
+    telegramUrl: 'https://t.me/+MU0o9y7bYvIxY2E9'
+  },
+  { 
+    id: 'sector-const', 
+    name: '인테리어·건설', 
+    tabText: '인테리어·건설',
+    telegramUrl: 'https://t.me/+P8zSIg_JFEdjZjM1'
+  },
+  { 
+    id: 'sector-ai', 
+    name: 'AI·테크', 
+    tabText: 'AI·테크',
+    telegramUrl: 'https://t.me/+olaa18QsFCQ1Njll'
+  },
+  { 
+    id: 'sector-comm', 
+    name: '커머스', 
+    tabText: '커머스',
+    telegramUrl: 'https://t.me/+BRQJKahiFr02NGI1'
+  }
 ];
 
 export const KEYWORDS = [

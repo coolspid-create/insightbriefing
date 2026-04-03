@@ -25,7 +25,7 @@ const TelegramModal = ({ isOpen, onClose }) => {
               <li key={sector.id} className="modal-list-item thin-border-bottom">
                 <span className="modal-sector-name">{sector.name}</span>
                 <a 
-                  href="https://t.me/insight_briefing_main" 
+                  href={sector.telegramUrl || "https://t.me/insight_briefing_main"} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="modal-sub-btn"
