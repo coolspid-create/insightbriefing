@@ -189,49 +189,74 @@ app.post('/api/telegram/:sectorId', AdminAuth, async (req, res) => {
 app.post('/api/research/all', AdminAuth, async (req, res) => {
   try {
     const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-    console.log(`[API] Bulk research started for all sectors.`);
     
-    for (const sector of config.sectors) {
-      console.log(`[Bulk] Processing ${sector.name}...`);
-      const allData = await fetchAndProcessNews(sector.id);
-      const sectorData = allData[sector.id];
-      
-      await supabase.from('news_items').delete().eq('sector_id', sector.id);
-      await supabase.from('news_items').insert({
-        sector_id: sector.id,
-        content: sectorData
-      });
-    }
+    // 타임아웃 방지를 위해 즉시 응답을 보냅니다.
+    res.json({ success: true, message: '모든 섹터의 뉴스 수집을 백그라운드에서 시작했습니다. 로그를 확인해 주세요.' });
 
-    res.json({ success: true, message: '모든 섹터의 뉴스 수집이 완료되었습니다.' });
+    // 비동기로 작업을 진행합니다.
+    (async () => {
+      console.log(`[API] Bulk research started for all sectors.`);
+      for (const sector of config.sectors) {
+        try {
+          console.log(`[Bulk] Processing ${sector.name}...`);
+          const allData = await fetchAndProcessNews(sector.id);
+          const sectorData = allData[sector.id];
+          
+          await supabase.from('news_items').delete().eq('sector_id', sector.id);
+          await supabase.from('news_items').insert({
+            sector_id: sector.id,
+            content: sectorData
+          });
+        } catch (err) {
+          console.error(`[Bulk Error] ${sector.name}:`, err);
+        }
+      }
+      console.log(`[API] Bulk research completed.`);
+    })();
+    
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    // 아직 응답이 안 나갔을 경우에만 에러 처리 (위에서 res.json을 먼저 호출했으므로 catch에 걸리는 위치 확인)
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
 app.post('/api/telegram/all', AdminAuth, async (req, res) => {
   try {
     const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-    console.log(`[API] Bulk telegram broadcast started for all sectors.`);
+    
+    // 타임아웃 방지를 위해 즉시 응답을 보냅니다.
+    res.json({ success: true, message: '모든 섹터의 텔레그램 발송을 백그라운드에서 시작했습니다. 로그를 확인해 주세요.' });
 
-    for (const sector of config.sectors) {
-      const { data, error } = await supabase
-        .from('news_items')
-        .select('content')
-        .eq('sector_id', sector.id)
-        .single();
+    // 비동기로 작업을 진행합니다.
+    (async () => {
+      console.log(`[API] Bulk telegram broadcast started for all sectors.`);
+      for (const sector of config.sectors) {
+        try {
+          const { data, error } = await supabase
+            .from('news_items')
+            .select('content')
+            .eq('sector_id', sector.id)
+            .single();
 
-      if (data && data.content) {
-        console.log(`[Bulk Telegram] Broadcasting ${sector.name}...`);
-        await broadcastToTelegram(sector.id, data.content);
+          if (data && data.content) {
+            console.log(`[Bulk Telegram] Broadcasting ${sector.name}...`);
+            await broadcastToTelegram(sector.id, data.content);
+          }
+        } catch (err) {
+          console.error(`[Bulk Telegram Error] ${sector.name}:`, err);
+        }
       }
-    }
-
-    res.json({ success: true, message: '모든 섹터의 텔레그램 발송이 완료되었습니다.' });
+      console.log(`[API] Bulk telegram broadcast completed.`);
+    })();
+    
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
