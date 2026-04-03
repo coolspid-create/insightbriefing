@@ -324,12 +324,6 @@
   50% { opacity: 0.5; }
 }
 
-@media (max-width: 1200px) {
-  .admin-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Login Screen */
 .admin-login-screen {
   height: 100vh;
@@ -462,4 +456,121 @@
 .btn-bulk:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 991px) {
+  .admin-layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .sidebar-logo {
+    padding: 16px 20px;
+    font-size: 16px;
+  }
+
+  .sidebar-nav {
+    padding: 0;
+    display: flex;
+    overflow-x: auto; /* 가로 스크롤 메뉴로 변경 */
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .nav-header {
+    display: none; /* 모바일에서는 헤더 숨김 */
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 12px 20px;
+    border-bottom: none;
+    border-left: none !important;
+  }
+
+  .nav-item.active {
+    background-color: rgba(139, 107, 63, 0.3);
+    color: white;
+    border-bottom: 3px solid #8b6b3f;
+  }
+
+  .sidebar-footer {
+    display: none; /* 모바일 가독성을 위해 푸터 숨김 (필요시 메뉴 끝에 배치) */
+  }
+
+  .admin-main {
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .main-header {
+    padding: 16px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn {
+    padding: 12px;
+    font-size: 13px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .bulk-action-bar {
+    padding: 16px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bulk-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .admin-grid {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .login-card {
+    margin: 20px;
+    padding: 30px 20px;
+    width: calc(100% - 40px);
+  }
+
+  .specs-textarea {
+    height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-actions, .bulk-buttons {
+    grid-template-columns: 1fr; /* 아주 좁은 화면에선 버튼 세로로 */
+  }
 }
