@@ -251,10 +251,15 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <main className="admin-main">
         {/* Bulk Action Bar */}
-        <div className="bulk-action-bar">
+        <div className="bulk-action-bar" data-status={liveStatus['all']?.status}>
           <div className="bulk-info">
-            <span className="bulk-title">🚀 전체 섹터 일괄 액션</span>
-            <span className="bulk-desc">모든 산업 분야의 파이프라인을 한 번에 제어합니다.</span>
+            <div className="bulk-title-group">
+              <span className="bulk-title">🚀 전체 섹터 일괄 액션</span>
+              {liveStatus['all']?.status === 'working' && <span className="bulk-live-badge">RUNNING</span>}
+            </div>
+            <span className="bulk-desc">
+              {liveStatus['all']?.logs?.[0] || "모든 산업 분야의 파이프라인을 한 번에 제어합니다."}
+            </span>
           </div>
           <div className="bulk-buttons">
             <button 
