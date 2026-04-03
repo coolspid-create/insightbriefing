@@ -11,6 +11,7 @@ import './App.css';
 const MainLayout = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newsData, setNewsData] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     // Intersection Observer for fade-in effect
@@ -33,7 +34,15 @@ const MainLayout = () => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
     fetch(`${API_BASE_URL}/api/news`)
       .then(res => res.json())
-      .then(data => setNewsData(data))
+      .then(data => {
+        if (data.news) {
+          setNewsData(data.news);
+          setLastUpdated(data.lastUpdated);
+        } else {
+          // 폴백: 이전 형식의 데이터인 경우
+          setNewsData(data);
+        }
+      })
       .catch(err => console.error("데이터 로드 실패:", err));
 
     return () => {
@@ -46,7 +55,7 @@ const MainLayout = () => {
       <Header />
       
       <main>
-        <Hero onOpenTelegram={() => setIsModalOpen(true)} />
+        <Hero onOpenTelegram={() => setIsModalOpen(true)} lastUpdated={lastUpdated} />
         
         <div className="sectors-container">
           {SECTORS.map(sector => (

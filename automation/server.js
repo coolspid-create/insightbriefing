@@ -95,11 +95,22 @@ app.get('/api/news', async (req, res) => {
 
     // Convert array to the object format expected by the frontend: { sectorId: [items] }
     const newsDb = {};
+    let latestTimestamp = null;
+    
     data.forEach(item => {
       newsDb[item.sector_id] = item.content;
+      
+      // 기사 중 가장 최신의 생성 시각을 전역 업데이트 시각으로 채택
+      const itemTime = new Date(item.created_at);
+      if (!latestTimestamp || itemTime > latestTimestamp) {
+        latestTimestamp = itemTime;
+      }
     });
     
-    res.json(newsDb);
+    res.json({
+      news: newsDb,
+      lastUpdated: latestTimestamp
+    });
   } catch (error) {
     console.error('Supabase fetch error:', error);
     res.status(500).json({ error: error.message });
@@ -147,12 +158,17 @@ app.post('/api/research/:sectorId', AdminAuth, async (req, res) => {
 
     // Sync to Supabase immediately after research
     await supabase.from('news_items').delete().eq('sector_id', sectorId);
-    const { error } = await supabase.from('news_items').insert({
+    await supabase.from('news_items').insert({
       sector_id: sectorId,
       content: sectorData
     });
 
-    if (error) throw error;
+    // [RAG 고도화용] 히스토리 아카이브 저장 (이미지 제외하여 용량 최적화)
+    const historyData = sectorData.map(({ image, ...rest }) => rest);
+    await supabase.from('news_history').insert({
+      sector_id: sectorId,
+      content: historyData
+    });
 
     res.json({ success: true, data: sectorData });
   } catch (error) {
@@ -213,6 +229,13 @@ app.post('/api/bulk/research', AdminAuth, async (req, res) => {
           await supabase.from('news_items').insert({
             sector_id: sector.id,
             content: sectorData
+          });
+
+          // [RAG 고도화용] 히스토리 아카이브 저장 (이미지 제외하여 용량 최적화)
+          const historyData = sectorData.map(({ image, ...rest }) => rest);
+          await supabase.from('news_history').insert({
+            sector_id: sector.id,
+            content: historyData
           });
           
           const completeMsg = `✅ [Bulk] ${sector.name} 수집 완료!`;
@@ -311,6 +334,13 @@ async function dailyAutoWorkflow() {
         
         await supabase.from('news_items').delete().eq('sector_id', sector.id);
         await supabase.from('news_items').insert({ sector_id: sector.id, content: sectorData });
+
+        // [RAG 고도화용] 히스토리 아카이브 저장 (이미지 제외하여 용량 최적화)
+        const historyData = sectorData.map(({ image, ...rest }) => rest);
+        await supabase.from('news_history').insert({
+          sector_id: sector.id,
+          content: historyData
+        });
         
         const completeMsg = `✅ [자동-Bulk] ${sector.name} 수집 완료!`;
         updateStatus(sector.id, 'idle', completeMsg);

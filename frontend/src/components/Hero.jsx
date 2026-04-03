@@ -3,17 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, ArrowRight, Activity, TrendingUp } from 'lucide-react';
 import './Hero.css';
 
-const Hero = ({ onOpenTelegram }) => {
+const Hero = ({ onOpenTelegram, lastUpdated }) => {
   const [currentDate, setCurrentDate] = useState('');
   const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일`;
+    const targetDate = lastUpdated ? new Date(lastUpdated) : new Date();
+    
+    // 날짜 포맷팅: 2026년 4월 3일 (금)
+    const dateStr = `${targetDate.getFullYear()}년 ${targetDate.getMonth() + 1}월 ${targetDate.getDate()}일`;
     const days = ['일', '월', '화', '수', '목', '금', '토'];
-    setCurrentDate(`${dateStr} (${days[now.getDay()]})`);
-    setCurrentTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} 기준`);
-  }, []);
+    setCurrentDate(`${dateStr} (${days[targetDate.getDay()]})`);
+    
+    // 시간 포맷팅: 20:58 기준
+    const hours = String(targetDate.getHours()).padStart(2, '0');
+    const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+    setCurrentTime(`${hours}:${minutes} 기준`);
+  }, [lastUpdated]);
 
   const containerVars = {
     hidden: { opacity: 0 },
