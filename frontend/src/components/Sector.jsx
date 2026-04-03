@@ -13,7 +13,7 @@ const Sector = ({ sectorInfo, newsList }) => {
           </div>
           <div className="sector-actions">
               <a 
-                href="https://t.me/insight_briefing_main" 
+                href={sectorInfo.telegramUrl || "https://t.me/insight_briefing_main"} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="sector-telegram-btn thin-border"
