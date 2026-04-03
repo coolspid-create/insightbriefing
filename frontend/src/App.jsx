@@ -55,7 +55,11 @@ const MainLayout = () => {
       <Header />
       
       <main>
-        <Hero onOpenTelegram={() => setIsModalOpen(true)} lastUpdated={lastUpdated} />
+        <Hero 
+          onOpenTelegram={() => setIsModalOpen(true)} 
+          lastUpdated={lastUpdated} 
+          allNews={newsData} 
+        />
         
         <div className="sectors-container">
           {SECTORS.map(sector => (
