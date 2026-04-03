@@ -331,14 +331,17 @@ const AdminDashboard = () => {
 
             <section className="admin-panel status-panel">
               <div className="status-header">
-                <h3>LIVE LOGS</h3>
-                <span className={`status-badge ${liveStatus[selectedSectorId]?.status === 'working' ? 'active' : ''}`}>
-                  {liveStatus[selectedSectorId]?.status === 'working' ? 'RUNNING' : 'IDLE'}
+                <h3>
+                  LIVE LOGS 
+                  {liveStatus['all']?.status === 'working' && <span style={{color: '#10b981', marginLeft: '8px', fontSize: '10px', animation: 'blink 1s infinite'}}>(GLOBAL BULK)</span>}
+                </h3>
+                <span className={`status-badge ${(liveStatus['all']?.status === 'working' || liveStatus[selectedSectorId]?.status === 'working') ? 'active' : ''}`}>
+                  {liveStatus['all']?.status === 'working' ? 'RUNNING (ALL)' : (liveStatus[selectedSectorId]?.status === 'working' ? 'RUNNING' : 'IDLE')}
                 </span>
               </div>
               <div className="log-console">
-                {liveStatus[selectedSectorId]?.logs?.length > 0 ? (
-                  liveStatus[selectedSectorId].logs.map((log, i) => (
+                {(liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : (liveStatus[selectedSectorId]?.logs || [])).length > 0 ? (
+                  (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : liveStatus[selectedSectorId].logs).map((log, i) => (
                     <div key={i} className="log-entry">{log}</div>
                   ))
                 ) : (
