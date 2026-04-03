@@ -71,6 +71,68 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
     if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 대조를 위한 썸네일 분석 중...`);
     
+    // URL에서 이미지 및 메타 추출 시도하는 헬퍼 함수
+    const extractFromUrl = async (url) => {
+      if (!url) return { image: null, publisher: null };
+      try {
+        const pageRes = await axios.get(url, { 
+          timeout: 5000,
+          maxRedirects: 5,
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+          } 
+        });
+        const html = pageRes.data;
+        let img = null;
+        let pub = null;
+        
+        // [전략 1] og:image (content가 앞에 오는 패턴도 대응)
+        const ogImg = html.match(/<meta[^>]*property=['"]og:image['"][^>]*content=['"]([^'"]+)['"]/i) ||
+                      html.match(/<meta[^>]*content=['"]([^'"]+)['"][^>]*property=['"]og:image['"]/i);
+        if (ogImg && ogImg[1]) img = ogImg[1];
+
+        // [전략 2] twitter:image
+        if (!img) {
+          const twImg = html.match(/<meta[^>]*(?:property|name)=['"]twitter:image(?::src)?['"][^>]*content=['"]([^'"]+)['"]/i) ||
+                        html.match(/<meta[^>]*content=['"]([^'"]+)['"][^>]*(?:property|name)=['"]twitter:image(?::src)?['"]/i);
+          if (twImg && twImg[1]) img = twImg[1];
+        }
+
+        // [전략 3] 네이버 뉴스 본문 영역의 img 태그 (newsct_article, article_body 등)
+        if (!img) {
+          const articleImg = html.match(/<div[^>]*(?:id|class)=['"][^'"]*(?:newsct_article|article_body|news_body|article_content|articeBody)[^'"]*['"][^>]*>[\s\S]*?<img[^>]*src=['"]([^'"]+)['"]/i);
+          if (articleImg && articleImg[1]) img = articleImg[1];
+        }
+
+        // [전략 4] 본문 내 첫 고화질 이미지 (로고/아이콘 등 제외)
+        if (!img) {
+          const allImgs = [...html.matchAll(/<img[^>]*src=['"]([^'"]+)['"]/gi)];
+          for (const m of allImgs) {
+            const src = m[1];
+            if (src.includes('logo') || src.includes('icon') || src.includes('banner') || 
+                src.includes('btn_') || src.includes('bg_') || src.includes('sprite') ||
+                src.includes('ad_') || src.includes('1x1') || src.includes('blank') ||
+                src.endsWith('.gif') || src.endsWith('.svg')) continue;
+            const widthMatch = m[0].match(/width=['"]?(\d+)/i);
+            if (widthMatch && parseInt(widthMatch[1]) < 100) continue;
+            img = src;
+            break;
+          }
+        }
+
+        // og:site_name에서 언론사명 추출
+        const siteMatch = html.match(/<meta[^>]*property=['"]og:site_name['"][^>]*content=['"]([^'"]+)['"]/i) ||
+                         html.match(/<meta[^>]*content=['"]([^'"]+)['"][^>]*property=['"]og:site_name['"]/i);
+        if (siteMatch && siteMatch[1]) pub = siteMatch[1];
+
+        return { image: img, publisher: pub };
+      } catch (e) { 
+        return { image: null, publisher: null }; 
+      }
+    };
+
     // [중복 정밀 진단] 제목(유사도) + 이미지(URL) 복합 필터링
     const finalCandidates = [];
     const seenTitles = new Set();
@@ -80,25 +142,30 @@ async function fetchAndProcessNews(targetSectorId = null) {
       const cleanTitle = item.title.replace(/[^\wㄱ-ㅎㅏ-ㅣ가-힣]/g, '').substring(0, 15);
       if (seenTitles.has(cleanTitle)) continue;
 
-      // 실시간 이미지 및 언론사 정보 추출 (중복 판단 및 정확도 향상용)
+      // ===== 이미지 & 언론사 정보 추출 (다중 소스 전략) =====
       let currentImage = null;
       let publisherName = null;
-      try {
-        const pageRes = await axios.get(item.link, { 
-          timeout: 3000, 
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } 
-        });
-        const html = pageRes.data;
-        
-        // 이미지 추출 (다양한 메타 태그 대응)
-        const imgMatch = html.match(/<meta[^>]*property=['"](?:og:image|twitter:image)['"][^>]*content=['"]([^'"]+)['"]/i) ||
-                        html.match(/<meta[^>]*name=['"](?:twitter:image|image)['"][^>]*content=['"]([^'"]+)['"]/i);
-        if (imgMatch && imgMatch[1]) currentImage = imgMatch[1];
 
-        // 언론사 이름 추출 (og:site_name 활용)
-        const siteMatch = html.match(/<meta[^>]*property=['"]og:site_name['"][^>]*content=['"]([^'"]+)['"]/i);
-        if (siteMatch && siteMatch[1]) publisherName = siteMatch[1];
-      } catch (e) { /* ignore */ }
+      // 1차 시도: 네이버 링크 (n.news.naver.com)
+      const naverResult = await extractFromUrl(item.link);
+      currentImage = naverResult.image;
+      publisherName = naverResult.publisher;
+
+      // 2차 시도: 네이버 링크에서 이미지를 못 가져왔으면, 원본 언론사 링크에서 재시도
+      if (!currentImage && item.original_link && item.original_link !== item.link) {
+        console.log(`   - [2차 시도] 원본 링크에서 이미지 추출: ${item.original_link.substring(0, 50)}...`);
+        const origResult = await extractFromUrl(item.original_link);
+        if (origResult.image) currentImage = origResult.image;
+        if (!publisherName && origResult.publisher) publisherName = origResult.publisher;
+      }
+
+      // 상대경로 -> 절대경로 보정
+      if (currentImage && !currentImage.startsWith('http')) {
+        try {
+          const base = new URL(item.original_link || item.link);
+          currentImage = new URL(currentImage, base.origin).href;
+        } catch (e) { /* ignore */ }
+      }
 
       // 동일 이미지를 사용하는 기사(동일 보도자료) 걸러내기
       if (currentImage && seenImages.has(currentImage)) {
@@ -106,16 +173,24 @@ async function fetchAndProcessNews(targetSectorId = null) {
         continue;
       }
 
-      item.image = currentImage; // 수집한 데이터에 이미지 저장
-      item.publisher = publisherName; // 수집한 데이터에 언론사명 저장
+      if (currentImage) {
+        console.log(`   ✓ [이미지 추출 성공] ${item.title.substring(0,25)}...`);
+      }
+
+      item.image = currentImage;
+      item.publisher = publisherName;
       seenTitles.add(cleanTitle);
       if (currentImage) seenImages.add(currentImage);
       finalCandidates.push(item);
       
-      if (finalCandidates.length >= 15) break; // 충분히 추려졌으면 중단
+      if (finalCandidates.length >= 15) break;
     }
 
-    if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 제거 완료 (${finalCandidates.length}건 유효). AI 최종 브리핑 생성 중...`);
+    // 이미지 추출 성공률 로그
+    const imgSuccessCount = finalCandidates.filter(c => c.image).length;
+    console.log(`   📊 이미지 추출 성공률: ${imgSuccessCount}/${finalCandidates.length} (${Math.round(imgSuccessCount/finalCandidates.length*100)}%)`);
+
+    if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 제거 완료 (${finalCandidates.length}건 유효, 이미지 ${imgSuccessCount}건). AI 최종 브리핑 생성 중...`);
 
     let priorityContext = `산업분야(${sector.name})의 전문 컨설팅 브리핑을 작성하십시오. 중복된 내용의 기사(다른 언론사의 동일 보도)는 배제하고, 다양한 관점의 소식을 포함하십시오.`;
     if (sector.isUrgent) {
@@ -159,11 +234,34 @@ async function fetchAndProcessNews(targetSectorId = null) {
       const parsed = JSON.parse(response.choices[0].message.content);
       const selectedNews = parsed.news || [];
       
-      // 이미 위에서 이미지를 가져왔으므로, 선택된 뉴스에 매칭만 해줌
+      // 선택된 뉴스에 이미지 매칭 (link 기반 + original_link 기반 양측 대조)
       for (const item of selectedNews) {
-        const matched = finalCandidates.find(f => f.link === item.link);
-        if (matched) item.image = matched.image;
+        const matched = finalCandidates.find(f => f.link === item.link || f.original_link === item.link);
+        if (matched && matched.image) {
+          item.image = matched.image;
+        }
       }
+
+      // ===== 이미지 누락 기사에 대한 재추출 (최종 안전망) =====
+      const missingImgItems = selectedNews.filter(n => !n.image);
+      if (missingImgItems.length > 0) {
+        console.log(`   🔄 이미지 누락 ${missingImgItems.length}건에 대해 개별 재추출 시도...`);
+        if (global.updateStatus) global.updateStatus(sector.id, 'working', `이미지 누락 ${missingImgItems.length}건 개별 재추출 중...`);
+        
+        for (const item of missingImgItems) {
+          const retryResult = await extractFromUrl(item.link);
+          if (retryResult.image) {
+            item.image = retryResult.image;
+            console.log(`   ✓ [재추출 성공] ${item.title.substring(0,25)}...`);
+          } else {
+            console.log(`   ✗ [재추출 실패] ${item.title.substring(0,25)}...`);
+          }
+        }
+      }
+
+      const finalImgCount = selectedNews.filter(n => n.image).length;
+      console.log(`   📊 최종 이미지 보유율: ${finalImgCount}/${selectedNews.length} (${Math.round(finalImgCount/selectedNews.length*100)}%)`);
+
 
       results[sector.id] = selectedNews;
       if (global.updateStatus) global.updateStatus(sector.id, 'working', `GPT-4o 브리핑 및 영상 대조 중복제거 완료!`);
