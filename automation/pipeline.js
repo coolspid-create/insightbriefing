@@ -6,6 +6,15 @@ const axios = require('axios');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 
+const SECTOR_PLACEHOLDERS = {
+  'sector-ren': 'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?auto=format&fit=crop&q=80&w=800',
+  'sector-safe': 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&q=80&w=800',
+  'sector-const': 'https://images.unsplash.com/photo-1503387762-592dea58ef21?auto=format&fit=crop&q=80&w=800',
+  'sector-ai': 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800',
+  'sector-comm': 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+  'default': 'https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&q=80&w=800'
+};
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -120,9 +129,10 @@ async function fetchAndProcessNews(targetSectorId = null) {
           if (twImg && twImg[1]) img = twImg[1];
         }
 
-        // [전략 3] 네이버 뉴스 본문 영역의 img 태그 (newsct_article, article_body 등)
+        // [전략 3] 네이버 뉴스 본문 영역의 img 태그 (다양한 셀렉터 대응)
         if (!img) {
-          const articleImg = html.match(/<div[^>]*(?:id|class)=['"][^'"]*(?:newsct_article|article_body|news_body|article_content|articeBody)[^'"]*['"][^>]*>[\s\S]*?<img[^>]*src=['"]([^'"]+)['"]/i);
+          const articleImg = html.match(/<div[^>]*(?:id|class)=['"][^'"]*(?:newsct_article|article_body|news_body|article_content|articeBody|nbd_article)[^'"]*['"][^>]*>[\s\S]*?<img[^>]*src=['"]([^'"]+)['"]/i) ||
+                            html.match(/<img[^>]*class=['"][^'"]*(?:_article_full_img|nbd_main_img)[^'"]*['"][^>]*src=['"]([^'"]+)['"]/i);
           if (articleImg && articleImg[1]) img = articleImg[1];
         }
 
@@ -134,6 +144,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
             if (src.includes('logo') || src.includes('icon') || src.includes('banner') || 
                 src.includes('btn_') || src.includes('bg_') || src.includes('sprite') ||
                 src.includes('ad_') || src.includes('1x1') || src.includes('blank') ||
+                src.includes('pixel') || src.includes('loading') ||
                 src.endsWith('.gif') || src.endsWith('.svg')) continue;
             img = src;
             break;
@@ -303,9 +314,13 @@ async function fetchAndProcessNews(targetSectorId = null) {
         }
       }
 
-      const finalImgCount = selectedNews.filter(n => n.image).length;
-      console.log(`   📊 최종 이미지 보유율: ${finalImgCount}/${selectedNews.length} (${Math.round(finalImgCount/selectedNews.length*100)}%)`);
-
+      // ===== 기사 내용 보강 및 이미지 폴백 적용 =====
+      selectedNews = selectedNews.map(item => {
+        if (!item.image) {
+          item.image = SECTOR_PLACEHOLDERS[sector.id] || SECTOR_PLACEHOLDERS['default'];
+        }
+        return item;
+      });
 
       results[sector.id] = selectedNews;
       if (global.updateStatus) global.updateStatus(sector.id, 'working', `GPT-4o 브리핑 및 영상 대조 중복제거 완료!`, 'info');

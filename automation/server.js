@@ -39,7 +39,17 @@ async function updateStatus(id, status, log, level = 'info') {
   if (!sectorStatus[id]) sectorStatus[id] = { status: 'idle', logs: [], lastUpdated: null };
   sectorStatus[id].status = status;
   
-  const timestamp = new Date().toLocaleTimeString();
+  // 한국 시간(KST) 문자열 생성 (yyyy. mm. dd. 오전/오후 hh:mm:ss 형식)
+  const timestamp = new Date().toLocaleString('ko-KR', { 
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true 
+  });
   const fullLog = `[${timestamp}] ${log}`;
   
   if (log) {

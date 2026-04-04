@@ -26,6 +26,13 @@ const AdminDashboard = () => {
     }
   }, [token]);
 
+  // 섹터 변경 시 히스토리 로그 즉시 갱신
+  useEffect(() => {
+    if (token && logTab === 'history') {
+      fetchPersistentLogs();
+    }
+  }, [selectedSectorId, logTab]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -350,14 +357,70 @@ const AdminDashboard = () => {
           </div>
         </header>
 
-        <div className="admin-grid">
-          {/* Left Column: Config & Logs */}
-          <div className="grid-left">
-            <section className="admin-panel card">
+        <div className="admin-content-split">
+          {/* Left Column: Side Logs */}
+          <div className="content-side-logs" style={{ padding: '10px 24px 24px' }}>
+            <section className="admin-panel status-panel">
+              <div className="status-header">
+                <div className="status-tabs">
+                  <button 
+                    className={`tab-btn ${logTab === 'live' ? 'active' : ''}`}
+                    onClick={() => setLogTab('live')}
+                  >
+                    LIVE LOGS
+                  </button>
+                  <button 
+                    className={`tab-btn ${logTab === 'history' ? 'active' : ''}`}
+                    onClick={() => setLogTab('history')}
+                  >
+                    HISTORY (DB)
+                  </button>
+                </div>
+                <div className="status-badges">
+                  <span className={`status-badge ${(liveStatus['all']?.status === 'working' || liveStatus[selectedSectorId]?.status === 'working') ? 'active' : ''}`}>
+                    {liveStatus['all']?.status === 'working' ? 'RUNNING (ALL)' : (liveStatus[selectedSectorId]?.status === 'working' ? 'RUNNING' : 'IDLE')}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="log-console">
+                <div className="selected-sector-info">
+                   <span className="selected-sector-label">{currentSector?.name}</span>
+                </div>
+                {logTab === 'live' ? (
+                  (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : (liveStatus[selectedSectorId]?.logs || [])).length > 0 ? (
+                    (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : liveStatus[selectedSectorId].logs).map((log, i) => (
+                      <div key={i} className="log-entry">{log}</div>
+                    ))
+                  ) : (
+                    <div className="log-empty">대기 중입니다.</div>
+                  )
+                ) : (
+                  isLogsLoading ? (
+                    <div className="log-loading">로드 중...</div>
+                  ) : persistentLogs.length > 0 ? (
+                    persistentLogs.map((log, i) => (
+                      <div key={log.id || i} className={`log-entry-hist level-${log.level}`}>
+                        <span className="log-time">{new Date(log.created_at).toLocaleTimeString()}</span>
+                        <span className="log-msg">{log.message}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="log-empty">기록 없음</div>
+                  )
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* Right Column: Details (Guidelines + Editor) */}
+          <div className="content-main-area">
+            {/* 1. Research Guidelines */}
+            <section className="admin-panel card guidelines-panel">
               <div className="panel-header">
                 <h3>리서치 가이드라인</h3>
                 <button 
-                  className="btn-text" 
+                  className="btn btn-save-text" 
                   onClick={saveSectorConfig}
                   disabled={savingId === selectedSectorId}
                 >
@@ -377,71 +440,18 @@ const AdminDashboard = () => {
               />
             </section>
 
-            <section className="admin-panel status-panel">
-              <div className="status-header">
-                <div className="status-tabs">
-                  <button 
-                    className={`tab-btn ${logTab === 'live' ? 'active' : ''}`}
-                    onClick={() => setLogTab('live')}
-                  >
-                    LIVE LOGS
-                  </button>
-                  <button 
-                    className={`tab-btn ${logTab === 'history' ? 'active' : ''}`}
-                    onClick={() => {
-                      setLogTab('history');
-                      fetchPersistentLogs();
-                    }}
-                  >
-                    HISTORY (DB)
-                  </button>
-                </div>
-                <span className={`status-badge ${(liveStatus['all']?.status === 'working' || liveStatus[selectedSectorId]?.status === 'working') ? 'active' : ''}`}>
-                  {liveStatus['all']?.status === 'working' ? 'RUNNING (ALL)' : (liveStatus[selectedSectorId]?.status === 'working' ? 'RUNNING' : 'IDLE')}
-                </span>
-              </div>
-              
-              <div className="log-console">
-                {logTab === 'live' ? (
-                  /* 실시간 메모리 로그 */
-                  (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : (liveStatus[selectedSectorId]?.logs || [])).length > 0 ? (
-                    (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : liveStatus[selectedSectorId].logs).map((log, i) => (
-                      <div key={i} className="log-entry">{log}</div>
-                    ))
-                  ) : (
-                    <div className="log-empty">대기 중입니다. 작업이 시작되면 실시간 로그가 표시됩니다.</div>
-                  )
-                ) : (
-                  /* Supabase 영구 로그 */
-                  isLogsLoading ? (
-                    <div className="log-loading">로그 불러오는 중...</div>
-                  ) : persistentLogs.length > 0 ? (
-                    persistentLogs.map((log, i) => (
-                      <div key={log.id || i} className={`log-entry-hist level-${log.level}`}>
-                        <span className="log-time">[{new Date(log.created_at).toLocaleString()}]</span>
-                        <span className="log-sect">[{log.sector_id}]</span>
-                        <span className="log-msg">{log.message}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="log-empty">기록된 로그가 없습니다.</div>
-                  )
-                )}
-              </div>
-            </section>
-          </div>
-
-          {/* Right Column: News Editor */}
-          <div className="grid-right">
+            {/* 2. News Editor */}
             <section className="admin-panel item-editor">
               <div className="panel-header">
                 <h3>기사 큐레이션 에디터</h3>
-                <button className="btn btn-save" onClick={saveNews}>저장</button>
+                <button className="btn btn-save" onClick={saveNews}>에디터 저장</button>
               </div>
               <div className="news-list-edit">
                 {currentNews.map((news, idx) => (
                   <div key={idx} className="edit-card">
-                    <span className="news-num">기사 {idx + 1}</span>
+                    <div className="edit-card-header">
+                      <span className="news-num">기사 {idx + 1}</span>
+                    </div>
                     <input 
                       className="edit-title"
                       type="text" 
