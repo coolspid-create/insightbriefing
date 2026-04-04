@@ -248,7 +248,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
 **핵심 지침:**
 1. **수량 확보**: 가능한 한 **반드시 8개의 뉴스 기사**를 엄선하십시오. 후보가 충분하다면 반드시 8개를 채워야 합니다.
 2. **기업/콘텐츠 다양성**: 동일한 기업이나 브랜드에 대한 기사는 **최대 2개**까지만 포함할 수 있습니다. 이미 유사한 내용을 다룬 언론사의 중복 보도는 배제하고, 최대한 다양한 관점과 주제를 선택하십시오.
-3. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, 없을 경우에만 제목/링크를 통해 실제 언론사명만 짧게 기재하십시오. (날조 절대 금지)
+3. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, **반드시 모든 제목의 맨 앞에 [언론사명]을 포함하십시오.** (예: [매일경제] 신재생에너지 보급 확대)
 4. **JSON 출력 형식**: 반드시 다음의 객체 형태로만 응답하십시오.
 {
   "news": [
@@ -265,7 +265,8 @@ async function fetchAndProcessNews(targetSectorId = null) {
             content: `다음 뉴스 데이터 중 가장 비즈니스 가치가 높은 8개를 엄선하여 JSON으로 응답하십시오 (현재 후보군: ${finalCandidates.length}건):\n${JSON.stringify(finalCandidates.map(({title, description, link, publisher}) => ({title, description, link, publisher})))}`
           }
         ],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
+        timeout: 60000 // 60s timeout to avoid hanging
       });
 
       const parsed = JSON.parse(response.choices[0].message.content);
@@ -279,14 +280,26 @@ async function fetchAndProcessNews(targetSectorId = null) {
         
         for (const extra of extraCandidates) {
           if (selectedNews.length >= 8) break;
+          const pub = extra.publisher || '소식';
           selectedNews.push({
-            title: `[${extra.publisher || '소식'}] ${extra.title}`,
+            title: `[${pub}] ${extra.title}`,
             summary: extra.description ? extra.description.substring(0, 100) + '...' : '세부 내용을 확인하세요.',
             link: extra.link,
             image: extra.image
           });
         }
       }
+
+      // [핵심 보정] 모든 기사 제목 맨 앞에 [언론사명] 강제 적용 (AI가 누락한 경우 대비)
+      selectedNews = selectedNews.map(item => {
+        // AI가 이미 [언론사]를 넣었는지 확인
+        if (!item.title.startsWith('[')) {
+          const matched = finalCandidates.find(f => f.link === item.link || f.original_link === item.link);
+          const pub = matched?.publisher || '소식';
+          item.title = `[${pub}] ${item.title}`;
+        }
+        return item;
+      });
 
       // 선택된 뉴스에 이미지 매칭 (link 기반 + original_link 기반 양측 대조)
       for (const item of selectedNews) {

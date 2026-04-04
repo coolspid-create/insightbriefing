@@ -258,6 +258,7 @@ app.post('/api/bulk/research', AdminAuth, async (req, res) => {
     })();
   } catch (error) {
     console.error(error);
+    updateStatus('all', 'idle', `❌ 일괄 리서치 시스템 오류: ${error.message}`, 'error');
   }
 });
 
