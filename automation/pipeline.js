@@ -229,33 +229,52 @@ async function fetchAndProcessNews(targetSectorId = null) {
           {
             role: "system",
             content: `당신은 탁월한 통찰력을 지닌 C-Level 산업 전략가입니다. 제공된 뉴스 목록과 다음의 리서치 가이드를 바탕으로 경영진 브리핑을 작성합니다.\n${priorityContext}${researchGuide}
-**절대적인 규칙:**
-1. **언론사명 날조 절대 금지**: 각 기사의 'publisher' 필드에 있는 이름을 우선적으로 사용하십시오. 만약 'publisher' 필드가 비어있다면 제목 대괄호 [ ] 안의 내용이나 link의 도메인을 분석하여 실제 언론사명만 짧게 기재하십시오. (예: [매일경제], [IT조선], [연합뉴스] 등). 기사 마지막의 기자 이름 등은 절대 언론사로 오인하여 기재하지 마십시오.
-2. **중복 금지**: 서로 다른 주제 8개를 선정하고, 타 언론사의 동일 보도(중복 기사)는 배제하십시오. 특히 동일한 기업이나 브랜드에 대한 기사는 최대 2개까지만 포함할 수 있습니다. (다양성 확보)
-3. **JSON 출력 형식**: 반드시 다음의 객체 형태로만 응답하십시오.
+**핵심 지침:**
+1. **수량 확보**: 가능한 한 **반드시 8개의 뉴스 기사**를 엄선하십시오. 후보가 충분하다면 반드시 8개를 채워야 합니다.
+2. **기업/콘텐츠 다양성**: 동일한 기업이나 브랜드에 대한 기사는 **최대 2개**까지만 포함할 수 있습니다. 이미 유사한 내용을 다룬 언론사의 중복 보도는 배제하고, 최대한 다양한 관점과 주제를 선택하십시오.
+3. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, 없을 경우에만 제목/링크를 통해 실제 언론사명만 짧게 기재하십시오. (날조 절대 금지)
+4. **JSON 출력 형식**: 반드시 다음의 객체 형태로만 응답하십시오.
 {
   "news": [
     {
-      "title": "[언론사명] 실제 제목을 가공한 전문적인 헤드라인",
-      "summary": "1~2문장의 비즈니스 임팩트 요약",
-      "link": "기사 원본 URL"
+      "title": "[언론사명] 헤드라인",
+      "summary": "1~2문장 요약",
+      "link": "URL"
     }
   ]
 }`
           },
           {
             role: "user",
-            content: `다음 뉴스 데이터(제목, 내용, 링크, 추출된 언론사명) 중 가장 가치 있는 8개를 엄선하십시오:\n${JSON.stringify(finalCandidates)}`
+            content: `다음 뉴스 데이터 중 가장 비즈니스 가치가 높은 8개를 엄선하여 JSON으로 응답하십시오 (현재 후보군: ${finalCandidates.length}건):\n${JSON.stringify(finalCandidates.map(({title, description, link, publisher}) => ({title, description, link, publisher})))}`
           }
         ],
         response_format: { type: "json_object" }
       });
 
       const parsed = JSON.parse(response.choices[0].message.content);
-      const selectedNews = parsed.news || [];
+      let selectedNews = parsed.news || [];
       
+      // [보정 로직] 기사가 8개 미만일 경우 후보군에서 추가로 채움
+      if (selectedNews.length < 8 && finalCandidates.length > selectedNews.length) {
+        console.log(`   ⚠️ AI 결과 기사 부족 (${selectedNews.length}/8). 후보군에서 추가 수집 중...`);
+        const existingLinks = new Set(selectedNews.map(n => n.link));
+        const extraCandidates = finalCandidates.filter(c => !existingLinks.has(c.link));
+        
+        for (const extra of extraCandidates) {
+          if (selectedNews.length >= 8) break;
+          selectedNews.push({
+            title: `[${extra.publisher || '소식'}] ${extra.title}`,
+            summary: extra.description ? extra.description.substring(0, 100) + '...' : '세부 내용을 확인하세요.',
+            link: extra.link,
+            image: extra.image
+          });
+        }
+      }
+
       // 선택된 뉴스에 이미지 매칭 (link 기반 + original_link 기반 양측 대조)
       for (const item of selectedNews) {
+        if (item.image) continue; // 이미 보정 로직에서 채워졌다면 스킵
         const matched = finalCandidates.find(f => f.link === item.link || f.original_link === item.link);
         if (matched && matched.image) {
           item.image = matched.image;

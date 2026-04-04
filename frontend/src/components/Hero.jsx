@@ -156,7 +156,7 @@ const Hero = ({ onOpenTelegram, lastUpdated, allNews }) => {
           </motion.h1>
           
           <motion.p variants={itemVars} className="hero-subheadline">
-            매일 오전 9시, 5대 산업의 핵심 뉴스를 AI가 수집하고<br />
+            매일 오전 9시, 5대 산업의 핵심 뉴스를 AI가 수집하고
             선별합니다. 업종별 뉴스 브리핑을 확인하세요.
           </motion.p>
           

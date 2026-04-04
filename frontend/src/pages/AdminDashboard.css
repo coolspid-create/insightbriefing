@@ -244,17 +244,87 @@
   animation: blink 1s infinite;
 }
 
-.log-console {
-  padding: 20px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  flex: 1;
-  overflow-y: auto;
+/* --- Status Logs Panel --- */
+.status-panel .status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.log-entry { color: #10b981; margin-bottom: 6px; }
-.log-empty { color: #4b5563; font-style: italic; }
+.status-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.tab-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.log-console {
+  background: #000;
+  border-radius: 8px;
+  padding: 12px;
+  height: 250px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.log-entry {
+  color: #a1a1aa;
+  margin-bottom: 4px;
+}
+
+.log-entry-hist {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 4px 0;
+  display: flex;
+  gap: 8px;
+}
+
+.log-entry-hist.level-info { color: #a1a1aa; }
+.log-entry-hist.level-success { color: #10b981; }
+.log-entry-hist.level-error { color: #ef4444; }
+
+.log-time { color: #71717a; min-width: 140px; }
+.log-sect { color: var(--primary); font-weight: 600; min-width: 80px; }
+.log-msg { flex: 1; }
+
+.log-empty, .log-loading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Animations */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 
 /* News Editor */
 .item-editor {

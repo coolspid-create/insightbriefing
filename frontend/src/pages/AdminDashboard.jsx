@@ -12,8 +12,11 @@ const AdminDashboard = () => {
   const [sendingTelegramId, setSendingTelegramId] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [liveStatus, setLiveStatus] = useState({});
+  const [persistentLogs, setPersistentLogs] = useState([]);
+  const [logTab, setLogTab] = useState('live'); // 'live' or 'history'
   const [isBulkResearching, setIsBulkResearching] = useState(false);
   const [isBulkSending, setIsBulkSending] = useState(false);
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -49,8 +52,30 @@ const AdminDashboard = () => {
       const res = await fetch(`${API_BASE_URL}/api/status`);
       const data = await res.json();
       setLiveStatus(data);
+      
+      // 라이브 상태가 업데이트될 때 히스토리 로그도 주기적으로 갱신 (선택사항)
+      if (logTab === 'history') {
+        fetchPersistentLogs();
+      }
     } catch (e) {
       console.error("실시간 상태 로드 실패:", e);
+    }
+  };
+
+  const fetchPersistentLogs = async () => {
+    if (!token) return;
+    setIsLogsLoading(true);
+    try {
+      const sectorParam = selectedSectorId === 'all' ? '' : `?sectorId=${selectedSectorId}`;
+      const res = await fetch(`${API_BASE_URL}/api/logs${sectorParam}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setPersistentLogs(data);
+    } catch (e) {
+      console.error("히스토리 로그 로드 실패:", e);
+    } finally {
+      setIsLogsLoading(false);
     }
   };
 
@@ -354,21 +379,53 @@ const AdminDashboard = () => {
 
             <section className="admin-panel status-panel">
               <div className="status-header">
-                <h3>
-                  LIVE LOGS 
-                  {liveStatus['all']?.status === 'working' && <span style={{color: '#10b981', marginLeft: '8px', fontSize: '10px', animation: 'blink 1s infinite'}}>(GLOBAL BULK)</span>}
-                </h3>
+                <div className="status-tabs">
+                  <button 
+                    className={`tab-btn ${logTab === 'live' ? 'active' : ''}`}
+                    onClick={() => setLogTab('live')}
+                  >
+                    LIVE LOGS
+                  </button>
+                  <button 
+                    className={`tab-btn ${logTab === 'history' ? 'active' : ''}`}
+                    onClick={() => {
+                      setLogTab('history');
+                      fetchPersistentLogs();
+                    }}
+                  >
+                    HISTORY (DB)
+                  </button>
+                </div>
                 <span className={`status-badge ${(liveStatus['all']?.status === 'working' || liveStatus[selectedSectorId]?.status === 'working') ? 'active' : ''}`}>
                   {liveStatus['all']?.status === 'working' ? 'RUNNING (ALL)' : (liveStatus[selectedSectorId]?.status === 'working' ? 'RUNNING' : 'IDLE')}
                 </span>
               </div>
+              
               <div className="log-console">
-                {(liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : (liveStatus[selectedSectorId]?.logs || [])).length > 0 ? (
-                  (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : liveStatus[selectedSectorId].logs).map((log, i) => (
-                    <div key={i} className="log-entry">{log}</div>
-                  ))
+                {logTab === 'live' ? (
+                  /* 실시간 메모리 로그 */
+                  (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : (liveStatus[selectedSectorId]?.logs || [])).length > 0 ? (
+                    (liveStatus['all']?.status === 'working' ? liveStatus['all'].logs : liveStatus[selectedSectorId].logs).map((log, i) => (
+                      <div key={i} className="log-entry">{log}</div>
+                    ))
+                  ) : (
+                    <div className="log-empty">대기 중입니다. 작업이 시작되면 실시간 로그가 표시됩니다.</div>
+                  )
                 ) : (
-                  <div className="log-empty">대기 중입니다. 뉴스 리서치를 시작하면 로그가 여기에 표시됩니다.</div>
+                  /* Supabase 영구 로그 */
+                  isLogsLoading ? (
+                    <div className="log-loading">로그 불러오는 중...</div>
+                  ) : persistentLogs.length > 0 ? (
+                    persistentLogs.map((log, i) => (
+                      <div key={log.id || i} className={`log-entry-hist level-${log.level}`}>
+                        <span className="log-time">[{new Date(log.created_at).toLocaleString()}]</span>
+                        <span className="log-sect">[{log.sector_id}]</span>
+                        <span className="log-msg">{log.message}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="log-empty">기록된 로그가 없습니다.</div>
+                  )
                 )}
               </div>
             </section>
