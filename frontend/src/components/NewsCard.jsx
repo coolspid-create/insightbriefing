@@ -20,10 +20,15 @@ const NewsCard = ({ news }) => {
       </div>
       <div className="news-image-wrapper">
         <img 
-          src={news.image || `https://picsum.photos/seed/${encodeURIComponent(news.title || 'news')}/400/300`} 
+          src={news.image || `https://via.placeholder.com/400x300/f3f4f6/94a3b8?text=Image+Unavailable`} 
           alt={news.title} 
           className="news-image" 
           loading="lazy" 
+          onError={(e) => {
+            e.target.onerror = null; // Infinite loop prevention
+            e.target.src = "https://via.placeholder.com/400x300/f3f4f6/94a3b8?text=Image+Not+Found";
+            e.target.className = "news-image news-image-fallback";
+          }}
         />
       </div>
     </article>

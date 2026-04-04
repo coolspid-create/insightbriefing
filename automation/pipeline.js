@@ -56,7 +56,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
   for (const sector of config.sectors) {
     if (targetSectorId && sector.id !== targetSectorId) continue;
 
-    if (global.updateStatus) global.updateStatus(sector.id, 'working', `리서치 엔진 가동: ${sector.name}`);
+    if (global.updateStatus) global.updateStatus(sector.id, 'working', `리서치 엔진 가동: ${sector.name}`, 'info');
     console.log(`\n▶ [${sector.name}] 통합 리서치 가이드 기반 분석 시작`);
     
     // 가이드라인에서 '주요 검색 키워드' 섹션만 정밀 추출
@@ -72,7 +72,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
     const searchAttempts = keywords.length > 0 ? [keywords.join(' '), sector.name] : [sector.name];
 
     for (const query of searchAttempts) {
-      if (global.updateStatus) global.updateStatus(sector.id, 'working', `네이버 뉴스 탐색 시작 (쿼리: ${query})`);
+      if (global.updateStatus) global.updateStatus(sector.id, 'working', `네이버 뉴스 탐색 시작 (쿼리: ${query})`, 'info');
       console.log(`   - 검색 엔진 쿼리 전송: "${query}"`);
       
       const newsItems = await fetchNaverNews(query);
@@ -83,13 +83,13 @@ async function fetchAndProcessNews(targetSectorId = null) {
     }
     
     if (rawNewsData.length === 0) {
-      if (global.updateStatus) global.updateStatus(sector.id, 'idle', `검색 결과 없음 (스킵)`);
+      if (global.updateStatus) global.updateStatus(sector.id, 'idle', `검색 결과 없음 (스킵)`, 'info');
       console.log(`   ⚠️ 모든 시도에도 불구하고 검색 결과가 없습니다. 스킵합니다.`);
       results[sector.id] = [];
       continue;
     }
 
-    if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 대조를 위한 썸네일 분석 중...`);
+    if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 대조를 위한 썸네일 분석 중...`, 'info');
     
     // URL에서 이미지 및 메타 추출 시도하는 헬퍼 함수
     const extractFromUrl = async (url) => {
@@ -135,8 +135,6 @@ async function fetchAndProcessNews(targetSectorId = null) {
                 src.includes('btn_') || src.includes('bg_') || src.includes('sprite') ||
                 src.includes('ad_') || src.includes('1x1') || src.includes('blank') ||
                 src.endsWith('.gif') || src.endsWith('.svg')) continue;
-            const widthMatch = m[0].match(/width=['"]?(\d+)/i);
-            if (widthMatch && parseInt(widthMatch[1]) < 100) continue;
             img = src;
             break;
           }
@@ -179,11 +177,18 @@ async function fetchAndProcessNews(targetSectorId = null) {
         if (!publisherName && origResult.publisher) publisherName = origResult.publisher;
       }
 
-      // 상대경로 -> 절대경로 보정
+      // 상대경로 -> 절대경로 보정 (더욱 견고하게)
       if (currentImage && !currentImage.startsWith('http')) {
         try {
-          const base = new URL(item.original_link || item.link);
-          currentImage = new URL(currentImage, base.origin).href;
+          const baseUrlStr = item.original_link || item.link;
+          const base = new URL(baseUrlStr);
+          if (currentImage.startsWith('//')) {
+            currentImage = 'https:' + currentImage;
+          } else if (currentImage.startsWith('/')) {
+            currentImage = base.origin + currentImage;
+          } else {
+            currentImage = base.origin + '/' + currentImage;
+          }
         } catch (e) { /* ignore */ }
       }
 
@@ -210,7 +215,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
     const imgSuccessCount = finalCandidates.filter(c => c.image).length;
     console.log(`   📊 이미지 추출 성공률: ${imgSuccessCount}/${finalCandidates.length} (${Math.round(imgSuccessCount/finalCandidates.length*100)}%)`);
 
-    if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 제거 완료 (${finalCandidates.length}건 유효, 이미지 ${imgSuccessCount}건). AI 최종 브리핑 생성 중...`);
+    if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 제거 완료 (${finalCandidates.length}건 유효, 이미지 ${imgSuccessCount}건). AI 최종 브리핑 생성 중...`, 'info');
 
     let priorityContext = `산업분야(${sector.name})의 전문 컨설팅 브리핑을 작성하십시오. 중복된 내용의 기사(다른 언론사의 동일 보도)는 배제하고, 다양한 관점의 소식을 포함하십시오.`;
     if (sector.isUrgent) {
@@ -285,7 +290,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
       const missingImgItems = selectedNews.filter(n => !n.image);
       if (missingImgItems.length > 0) {
         console.log(`   🔄 이미지 누락 ${missingImgItems.length}건에 대해 개별 재추출 시도...`);
-        if (global.updateStatus) global.updateStatus(sector.id, 'working', `이미지 누락 ${missingImgItems.length}건 개별 재추출 중...`);
+        if (global.updateStatus) global.updateStatus(sector.id, 'working', `이미지 누락 ${missingImgItems.length}건 개별 재추출 중...`, 'info');
         
         for (const item of missingImgItems) {
           const retryResult = await extractFromUrl(item.link);
@@ -303,16 +308,16 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
 
       results[sector.id] = selectedNews;
-      if (global.updateStatus) global.updateStatus(sector.id, 'working', `GPT-4o 브리핑 및 영상 대조 중복제거 완료!`);
+      if (global.updateStatus) global.updateStatus(sector.id, 'working', `GPT-4o 브리핑 및 영상 대조 중복제거 완료!`, 'info');
       console.log(`   ✅ [${sector.name}] 이미지 기반 중복제거 및 분석 완료!`);
     } catch (err) {
       console.error(`   ❌ [${sector.name}] AI 분석 오류:`, err.message);
-      if (global.updateStatus) global.updateStatus(sector.id, 'idle', `AI 분석 오류 발생: ${err.message}`);
+      if (global.updateStatus) global.updateStatus(sector.id, 'idle', `AI 분석 오류 발생: ${err.message}`, 'error');
       results[sector.id] = [];
     }
   }
 
-  if (global.updateStatus && targetSectorId) global.updateStatus(targetSectorId, 'idle', `전체 파이프라인 작업 완료 및 대기 중`);
+  if (global.updateStatus && targetSectorId) global.updateStatus(targetSectorId, 'idle', `전체 파이프라인 작업 완료 및 대기 중`, 'success');
   return results;
 }
 
