@@ -234,27 +234,43 @@ app.post('/api/bulk/research', AdminAuth, async (req, res) => {
     res.json({ success: true, message: '일괄 수집 시작 (로그 확인 필요)' });
 
     (async () => {
-      updateStatus('all', 'working', '🌊 모든 섹터 일괄 수집을 시작합니다.', 'info');
-      for (const sector of config.sectors) {
-        try {
-          updateStatus(sector.id, 'working', `🔄 [Bulk] ${sector.name} 수집 중...`);
-          const allData = await fetchAndProcessNews(sector.id);
-          const sectorData = allData[sector.id];
-          
-          if (sectorData && sectorData.length > 0) {
-            await supabase.from('news_items').delete().eq('sector_id', sector.id);
-            await supabase.from('news_items').insert({ sector_id: sector.id, content: sectorData });
-            const historyData = sectorData.map(({ image, ...rest }) => rest);
-            await supabase.from('news_history').insert({ sector_id: sector.id, content: historyData });
-            updateStatus(sector.id, 'idle', `✅ [Bulk] ${sector.name} 완료!`, 'success');
-          } else {
-            updateStatus(sector.id, 'idle', `⚠️ [Bulk] ${sector.name}: 수집된 기사가 없어 기존 데이터를 유지합니다.`, 'info');
+      try {
+        updateStatus('all', 'working', '🌊 모든 섹터 일괄 수집을 시작합니다.', 'info');
+        for (const sector of config.sectors) {
+          try {
+            updateStatus(sector.id, 'working', `🔄 [Bulk] ${sector.name} 수집 중...`);
+            const allData = await fetchAndProcessNews(sector.id);
+            const sectorData = allData[sector.id];
+            
+            if (sectorData && sectorData.length > 0) {
+              // 기존 데이터 삭제 및 신규 삽입
+              await supabase.from('news_items').delete().eq('sector_id', sector.id);
+              const { error: insError } = await supabase.from('news_items').insert({ 
+                sector_id: sector.id, 
+                content: sectorData 
+              });
+              
+              if (insError) throw insError;
+
+              const historyData = sectorData.map(({ image, ...rest }) => rest);
+              await supabase.from('news_history').insert({ sector_id: sector.id, content: historyData });
+              
+              updateStatus(sector.id, 'idle', `✅ [Bulk] ${sector.name} 완료! (${sectorData.length}건)`, 'success');
+            } else {
+              updateStatus(sector.id, 'idle', `⚠️ [Bulk] ${sector.name}: 유효한 기사가 없어 기존 데이터를 유지합니다.`, 'info');
+            }
+          } catch (err) {
+            console.error(`[Bulk Sector Error] ${sector.id}:`, err.message);
+            updateStatus(sector.id, 'idle', `❌ [Bulk-Error] ${sector.name}: ${err.message}`, 'error');
           }
-        } catch (err) {
-          updateStatus(sector.id, 'idle', `❌ [Bulk-Error] ${sector.name}: ${err.message}`, 'error');
+          // 섹터 간 약간의 시간 차를 두어 rate limit 방지
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
+        updateStatus('all', 'idle', '🏁 모든 섹터 뉴스 일괄 수집 작업이 완료되었습니다.', 'success');
+      } catch (bulkErr) {
+        console.error('[Bulk Critical Error]:', bulkErr);
+        updateStatus('all', 'idle', `🚨 일괄 작업 중 치명적 오류: ${bulkErr.message}`, 'error');
       }
-      updateStatus('all', 'idle', '🏁 모든 섹터 뉴스 일괄 수집 완료', 'success');
     })();
   } catch (error) {
     console.error(error);
@@ -268,23 +284,29 @@ app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
     res.json({ success: true, message: '일괄 텔레그램 발송 시작 (로그 확인 필요)' });
 
     (async () => {
-      updateStatus('all', 'working', '✈️ 모든 섹터 텔레그램 발송을 시작합니다.', 'info');
-      for (const sector of config.sectors) {
-        try {
-          updateStatus(sector.id, 'working', `📡 [Bulk] ${sector.name} 발송 중...`);
-          const { data } = await supabase.from('news_items').select('content').eq('sector_id', sector.id).single();
+      try {
+        updateStatus('all', 'working', '✈️ 모든 섹터 텔레그램 발송을 시작합니다.', 'info');
+        for (const sector of config.sectors) {
+          try {
+            updateStatus(sector.id, 'working', `📡 [Bulk] ${sector.name} 발송 중...`);
+            const { data, error } = await supabase.from('news_items').select('content').eq('sector_id', sector.id).single();
 
-          if (data && data.content && data.content.length > 0) {
-            await broadcastToTelegram(sector.id, data.content);
-            updateStatus(sector.id, 'idle', `✅ [Bulk] ${sector.name} 발송 성공!`, 'success');
-          } else {
-            updateStatus(sector.id, 'idle', `⚠️ [Bulk] ${sector.name}: 기사가 없습니다.`, 'info');
+            if (!error && data && data.content && data.content.length > 0) {
+              await broadcastToTelegram(sector.id, data.content);
+              updateStatus(sector.id, 'idle', `✅ [Bulk] ${sector.name} 발송 성공!`, 'success');
+            } else {
+              updateStatus(sector.id, 'idle', `⚠️ [Bulk] ${sector.name}: 발송할 기사가 없습니다.`, 'info');
+            }
+          } catch (err) {
+            console.error(`[Bulk Telegram Error] ${sector.id}:`, err.message);
+            updateStatus(sector.id, 'idle', `❌ [Bulk-Error] ${sector.name}: ${err.message}`, 'error');
           }
-        } catch (err) {
-          updateStatus(sector.id, 'idle', `❌ [Bulk-Error] ${sector.name}: ${err.message}`, 'error');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 텔레그램 속도 제한 방어
         }
+        updateStatus('all', 'idle', '🏁 모든 섹터 텔레그램 일괄 발송 완료', 'success');
+      } catch (bulkErr) {
+        updateStatus('all', 'idle', `🚨 일괄 발송 중 치명적 오류: ${bulkErr.message}`, 'error');
       }
-      updateStatus('all', 'idle', '🏁 모든 섹터 텔레그램 일괄 발송 완료', 'success');
     })();
   } catch (error) {
     console.error(error);

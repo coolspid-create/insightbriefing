@@ -17,6 +17,7 @@ const SECTOR_PLACEHOLDERS = {
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  timeout: 60000, 
 });
 
 async function fetchNaverNews(query) {
@@ -31,9 +32,9 @@ async function fetchNaverNews(query) {
     });
 
     const now = new Date();
-    const limit = 24 * 60 * 60 * 1000; // 24시간 기준
+    const limit = 48 * 60 * 60 * 1000; // 48시간(2일)으로 확장하여 주말/공백기 대응
 
-    // 수집된 기사 중 24시간 이내의 기사만 필터링
+    // 수집된 기사 중 48시간 이내의 기사만 필터링
     return response.data.items.filter(item => {
       const pubDate = new Date(item.pubDate);
       return (now - pubDate) < limit;
@@ -249,7 +250,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
 1. **수량 확보**: 가능한 한 **반드시 8개의 뉴스 기사**를 엄선하십시오. 후보가 충분하다면 반드시 8개를 채워야 합니다.
 2. **기업/콘텐츠 다양성**: 동일한 기업이나 브랜드에 대한 기사는 **최대 2개**까지만 포함할 수 있습니다. 이미 유사한 내용을 다룬 언론사의 중복 보도는 배제하고, 최대한 다양한 관점과 주제를 선택하십시오.
 3. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, **반드시 모든 제목의 맨 앞에 [언론사명]을 포함하십시오.** (예: [매일경제] 신재생에너지 보급 확대)
-4. **JSON 출력 형식**: 반드시 다음의 객체 형태로만 응답하십시오.
+4. **JSON 출력 형식**: 반드시 JSON 형식으로만 응답하고, 다음의 객체 형태를 유지하십시오.
 {
   "news": [
     {
@@ -265,9 +266,8 @@ async function fetchAndProcessNews(targetSectorId = null) {
             content: `다음 뉴스 데이터 중 가장 비즈니스 가치가 높은 8개를 엄선하여 JSON으로 응답하십시오 (현재 후보군: ${finalCandidates.length}건):\n${JSON.stringify(finalCandidates.map(({title, description, link, publisher}) => ({title, description, link, publisher})))}`
           }
         ],
-        response_format: { type: "json_object" },
-        timeout: 60000 // 60s timeout to avoid hanging
-      });
+        response_format: { type: "json_object" }
+      }); 
 
       const parsed = JSON.parse(response.choices[0].message.content);
       let selectedNews = parsed.news || [];
@@ -341,6 +341,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
     } catch (err) {
       console.error(`   ❌ [${sector.name}] AI 분석 오류:`, err.message);
       if (global.updateStatus) global.updateStatus(sector.id, 'idle', `AI 분석 오류 발생: ${err.message}`, 'error');
+      // 에러가 나더라도 빈 배열을 리턴하여 상위 루프가 중단되지 않도록 함
       results[sector.id] = [];
     }
   }

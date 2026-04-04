@@ -130,6 +130,10 @@ const AdminDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) { logout(); return; }
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
+      
       alert('AI 리서치 완료 및 웹 갱신 성공!');
       fetchData();
     } catch (e) {
