@@ -7,10 +7,10 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
-const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 const { fetchAndProcessNews } = require('./pipeline');
 const { broadcastToTelegram } = require('./telegram');
+const supabase = require('./supabaseClient');
 
 const app = express();
 app.use(cors({
@@ -24,10 +24,10 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 
-// Supabase Initialization
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// (Supabase Initialization moved to supabaseClient.js)
+// const supabaseUrl = process.env.SUPABASE_URL;
+// const supabaseKey = process.env.SUPABASE_KEY;
+// const supabase = createClient(supabaseUrl, supabaseKey);
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 
@@ -116,20 +116,76 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-// 2. GET & PUT Config
-app.get('/api/config', (req, res) => {
-  const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  res.json(config);
+// 2. GET & PUT Config (Now using Supabase for persistence)
+app.get('/api/config', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('sector_config')
+      .select('*')
+      .order('weight', { ascending: false });
+
+    if (error) throw error;
+
+    // 프론트엔드 호환성을 위해 { sectors: [...] } 형태로 반환
+    res.json({ sectors: data.map(item => ({
+      id: item.id,
+      name: item.name,
+      researchSpecs: item.research_specs,
+      weight: item.weight,
+      isUrgent: item.is_urgent
+    })) });
+  } catch (error) {
+    console.error('Config fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.put('/api/config', AdminAuth, (req, res) => {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(req.body, null, 2), 'utf8');
-  res.json({ success: true });
+app.put('/api/config', AdminAuth, async (req, res) => {
+  try {
+    const { sectors } = req.body;
+    for (const sector of sectors) {
+      const { error } = await supabase
+        .from('sector_config')
+        .upsert({
+          id: sector.id,
+          name: sector.name,
+          research_specs: sector.researchSpecs,
+          weight: sector.weight,
+          is_urgent: sector.isUrgent,
+          updated_at: new Date()
+        });
+      if (error) throw error;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Config save error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// 3. GET News from Supabase (Persistent)
+// --- In-Memory Caching System (Performance Optimization) ---
+let newsCache = null;
+let lastCacheUpdate = null;
+const CACHE_TTL = 60 * 60 * 1000; // 캐시 유효 시간: 60분
+
+function clearNewsCache() {
+  console.log('[System] 뉴스 캐시가 무효화되었습니다 (새 데이터 동기화 필요).');
+  newsCache = null;
+  lastCacheUpdate = null;
+}
+
+// 3. GET News from Supabase (Enhanced with In-Memory Caching)
 app.get('/api/news', async (req, res) => {
   try {
+    const now = Date.now();
+    // 1. 캐시가 존재하고 유효 시간이 경과하지 않은 경우 즉시 반환 (속도 극대화)
+    if (newsCache && lastCacheUpdate && (now - lastCacheUpdate < CACHE_TTL)) {
+      console.log(`[Cache Hit] Serving ${Object.keys(newsCache.news).length} sectors from memory.`);
+      return res.json(newsCache);
+    }
+
+    // 2. 캐시가 없거나 만료된 경우 Supabase에서 조회
+    console.log('[Cache Miss] Fetching fresh news from Supabase...');
     const { data, error } = await supabase
       .from('news_items')
       .select('*');
@@ -146,11 +202,17 @@ app.get('/api/news', async (req, res) => {
         latestTimestamp = itemTime;
       }
     });
-    
-    res.json({
+
+    const responsePayload = {
       news: newsDb,
       lastUpdated: latestTimestamp
-    });
+    };
+
+    // 3. 응답 메모리에 캐시 저장
+    newsCache = responsePayload;
+    lastCacheUpdate = now;
+
+    res.json(responsePayload);
   } catch (error) {
     console.error('Supabase fetch error:', error);
     res.status(500).json({ error: error.message });
@@ -170,6 +232,7 @@ app.put('/api/news', AdminAuth, async (req, res) => {
       });
       if (error) throw error;
     }
+    clearNewsCache(); // 데이터 변경 시 캐시 즉시 비움
     res.json({ success: true });
   } catch (error) {
     console.error('Supabase save error:', error);
@@ -201,6 +264,7 @@ app.post('/api/research/:sectorId', AdminAuth, async (req, res) => {
     await supabase.from('news_history').insert({ sector_id: sectorId, content: historyData });
 
     updateStatus(sectorId, 'idle', `✅ [수동] ${sectorId} 리서치 완료 (${sectorData.length}건)`, 'success');
+    clearNewsCache(); // 뉴스 업데이트 시 캐시 즉시 재생성 유도
     res.json({ success: true, data: sectorData });
   } catch (error) {
     console.error(error);
@@ -230,13 +294,21 @@ app.post('/api/telegram/:sectorId', AdminAuth, async (req, res) => {
 // 6. Bulk Action API (Enhanced with safety)
 app.post('/api/bulk/research', AdminAuth, async (req, res) => {
   try {
-    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    const { data: sectors, error: cfgError } = await supabase.from('sector_config').select('*').order('weight', { ascending: false });
+    if (cfgError) throw cfgError;
+    
     res.json({ success: true, message: '일괄 수집 시작 (로그 확인 필요)' });
 
     (async () => {
       try {
         updateStatus('all', 'working', '🌊 모든 섹터 일괄 수집을 시작합니다.', 'info');
-        for (const sector of config.sectors) {
+        for (const sector of sectors) {
+          const formattedSector = {
+            id: sector.id,
+            name: sector.name,
+            researchSpecs: sector.research_specs,
+            isUrgent: sector.is_urgent
+          };
           try {
             updateStatus(sector.id, 'working', `🔄 [Bulk] ${sector.name} 수집 중...`);
             const allData = await fetchAndProcessNews(sector.id);
@@ -266,6 +338,7 @@ app.post('/api/bulk/research', AdminAuth, async (req, res) => {
           // 섹터 간 약간의 시간 차를 두어 rate limit 방지
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
+        clearNewsCache(); // 벌크 수집 완료 후 캐시 초기화
         updateStatus('all', 'idle', '🏁 모든 섹터 뉴스 일괄 수집 작업이 완료되었습니다.', 'success');
       } catch (bulkErr) {
         console.error('[Bulk Critical Error]:', bulkErr);
@@ -280,13 +353,14 @@ app.post('/api/bulk/research', AdminAuth, async (req, res) => {
 
 app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
   try {
-    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    const { data: sectors, error: cfgError } = await supabase.from('sector_config').select('id, name');
+    if (cfgError) throw cfgError;
     res.json({ success: true, message: '일괄 텔레그램 발송 시작 (로그 확인 필요)' });
 
     (async () => {
       try {
         updateStatus('all', 'working', '✈️ 모든 섹터 텔레그램 발송을 시작합니다.', 'info');
-        for (const sector of config.sectors) {
+        for (const sector of sectors) {
           try {
             updateStatus(sector.id, 'working', `📡 [Bulk] ${sector.name} 발송 중...`);
             const { data, error } = await supabase.from('news_items').select('content').eq('sector_id', sector.id).single();
@@ -317,15 +391,16 @@ app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
 async function dailyAutoWorkflow() {
   console.log(`[Scheduler] ⏰ 오전 9시 정기 리서치 및 발송을 시작합니다.`);
   try {
-    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    const { data: sectors, error: cfgError } = await supabase.from('sector_config').select('*').order('weight', { ascending: false });
+    if (cfgError) throw cfgError;
     
     updateStatus('all', 'working', '🌊 [자동] 정기 일괄 수집 시작', 'info');
-    for (const sector of config.sectors) {
+    for (const sector of sectors) {
       try {
         updateStatus(sector.id, 'working', `🔄 [자동] ${sector.name} 수집 중...`);
         
-        const allData = await fetchAndProcessNews(sector.id);
-        const sectorData = allData[sector.id] || [];
+        const sectorDataRows = await fetchAndProcessNews(sector.id);
+        const sectorData = sectorDataRows[sector.id] || [];
         
         if (sectorData.length > 0) {
           // 데이터가 성공적으로 수집된 경우에만 교체
@@ -344,9 +419,11 @@ async function dailyAutoWorkflow() {
       }
     }
     
+    clearNewsCache(); // 정기 작업 완료 후 캐시 초기화
+    
     // 2. 전체 섹터 텔레그램 발송
     updateStatus('all', 'working', '✈️ [자동] 정기 텔레그램 발송 시작', 'info');
-    for (const sector of config.sectors) {
+    for (const sector of sectors) {
       try {
         const { data } = await supabase.from('news_items').select('content').eq('sector_id', sector.id).single();
         if (data && data.content && data.content.length > 0) {
