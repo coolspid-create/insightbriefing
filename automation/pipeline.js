@@ -56,14 +56,35 @@ async function fetchNaverNews(query) {
 }
 
 async function fetchAndProcessNews(targetSectorId = null) {
-  const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  const supabase = require('./supabaseClient');
+  
+  let sectors = [];
+  try {
+    const { data, error } = await supabase
+      .from('sector_config')
+      .select('*')
+      .order('weight', { ascending: false });
+    
+    if (error) throw error;
+    
+    sectors = data.map(s => ({
+      id: s.id,
+      name: s.name,
+      researchSpecs: s.research_specs,
+      isUrgent: s.is_urgent
+    }));
+  } catch (err) {
+    console.error('❌ Could not fetch sector config from Supabase:', err.message);
+    return {};
+  }
+
   console.log("===================================================================");
   console.log(`[${new Date().toLocaleString()}] 통합 AI 파이프라인 엔진 가동 (target: ${targetSectorId || 'ALL'})`);
   console.log("===================================================================");
   
   const results = {};
 
-  for (const sector of config.sectors) {
+  for (const sector of sectors) {
     if (targetSectorId && sector.id !== targetSectorId) continue;
 
     if (global.updateStatus) global.updateStatus(sector.id, 'working', `리서치 엔진 가동: ${sector.name}`, 'info');

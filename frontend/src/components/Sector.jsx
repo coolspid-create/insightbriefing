@@ -24,9 +24,23 @@ const Sector = ({ sectorInfo, newsList }) => {
         </div>
         
         <div className="news-grid">
-          {newsList.map(news => (
-            <NewsCard key={news.id} news={news} />
-          ))}
+          {newsList && newsList.length > 0 ? (
+            newsList.map((news, idx) => (
+              <NewsCard key={news.id || idx} news={news} />
+            ))
+          ) : (
+            // Skeleton Placeholders
+            [1, 2, 3].map(i => (
+              <div key={i} className="skeleton-card thin-border">
+                <div className="skeleton-image"></div>
+                <div className="skeleton-body">
+                  <div className="skeleton-line title"></div>
+                  <div className="skeleton-line text"></div>
+                  <div className="skeleton-line text short"></div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>

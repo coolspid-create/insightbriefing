@@ -17,6 +17,7 @@ const AdminDashboard = () => {
   const [isBulkResearching, setIsBulkResearching] = useState(false);
   const [isBulkSending, setIsBulkSending] = useState(false);
   const [isLogsLoading, setIsLogsLoading] = useState(false);
+  const [isConfigModified, setIsConfigModified] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -110,6 +111,7 @@ const AdminDashboard = () => {
       } else {
         setNewsDb(db); // 폴백: 이전 형식인 경우
       }
+      setIsConfigModified(false);
     } catch (e) {
       console.error("데이터 로드 중 오류:", e);
     }
@@ -122,7 +124,11 @@ const AdminDashboard = () => {
   };
 
   const researchSector = async (sectorId) => {
-    if (!window.confirm('이 섹터의 최신 뉴스를 실시간으로 다시 수집하고 AI 분석 파이프라인을 가동하시겠습니까?')) return;
+    if (isConfigModified) {
+      if (!window.confirm('현재 수정 중인 가이드라인이 저장되지 않았습니다. 저장하지 않고 강행할 경우 수정 내용이 사라질 수 있습니다. 계속하시겠습니까?\n(가급적 "💾 가이드 저장"을 먼저 해주세요)')) return;
+    } else {
+      if (!window.confirm('이 섹터의 최신 뉴스를 실시간으로 다시 수집하고 AI 분석 파이프라인을 가동하시겠습니까?')) return;
+    }
     setUpdatingId(sectorId);
     try {
       const res = await fetch(`${API_BASE_URL}/api/research/${sectorId}`, {
@@ -177,6 +183,7 @@ const AdminDashboard = () => {
       
       if (response.status === 401) { logout(); return; }
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      setIsConfigModified(false);
       alert('설정이 저장되었습니다.');
     } catch (e) {
       alert('오류 발생: ' + e.message);
@@ -428,7 +435,7 @@ const AdminDashboard = () => {
                   onClick={saveSectorConfig}
                   disabled={savingId === selectedSectorId}
                 >
-                  {savingId === selectedSectorId ? '저장 중...' : '💾 가이드 저장'}
+                  {savingId === selectedSectorId ? '저장 중...' : (isConfigModified ? '💾 강조(미저장됨)' : '💾 가이드 저장')}
                 </button>
               </div>
               <textarea 
@@ -439,6 +446,7 @@ const AdminDashboard = () => {
                   const idx = newConfig.sectors.findIndex(s => s.id === selectedSectorId);
                   newConfig.sectors[idx].researchSpecs = e.target.value;
                   setConfig(newConfig);
+                  setIsConfigModified(true);
                 }}
                 placeholder="AI 리서치 시 참고할 구체적인 조건을 입력하세요."
               />
