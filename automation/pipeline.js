@@ -90,17 +90,25 @@ async function fetchAndProcessNews(targetSectorId = null) {
     if (global.updateStatus) global.updateStatus(sector.id, 'working', `리서치 엔진 가동: ${sector.name}`, 'info');
     console.log(`\n▶ [${sector.name}] 통합 리서치 가이드 기반 분석 시작`);
     
-    // 가이드라인에서 '주요 검색 키워드' 섹션만 정밀 추출
-    const keywordMatch = sector.researchSpecs.match(/# 주요 검색 키워드\s*:\s*([^\r\n]*)/i);
+    // 가이드라인에서 '주요 검색 키워드' 섹션 정밀 추출 (정규식 유연성 강화)
+    const keywordMatch = sector.researchSpecs.match(/#*\s*주요 검색 키워드\s*:\s*([^\r\n]*)/i);
     const keywords = keywordMatch ? keywordMatch[1].split(',').map(k => k.trim()).filter(k => k) : [];
     
     if (keywords.length > 0) {
       console.log(`   💡 가이드라인 키워드 감지: [${keywords.join(', ')}]`);
     }
 
-    // 검색 시도 루프 (키워드 기반 -> 실패 시 섹터명 폴백)
+    // 검색 시도 루프 (섹터명+키워드 -> 키워드 -> 섹터명 폴백)
     let rawNewsData = [];
-    const searchAttempts = keywords.length > 0 ? [keywords.join(' '), sector.name] : [sector.name];
+    let searchAttempts;
+    if (keywords.length > 0) {
+      // 괄호 등 특수문자 제거한 섹터명
+      const cleanSectorName = sector.name.replace(/[^\w가-힣]/g, ' ').trim();
+      const combinedQuery = `${cleanSectorName} ${keywords.join(' ')}`.replace(/\s+/g, ' ');
+      searchAttempts = [combinedQuery, keywords.join(' '), sector.name];
+    } else {
+      searchAttempts = [sector.name];
+    }
 
     for (const query of searchAttempts) {
       if (global.updateStatus) global.updateStatus(sector.id, 'working', `네이버 뉴스 탐색 시작 (쿼리: ${query})`, 'info');
