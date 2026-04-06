@@ -192,14 +192,23 @@ async function fetchAndProcessNews(targetSectorId = null) {
       }
     };
 
-    // [중복 정밀 진단] 제목(유사도) + 이미지(URL) 복합 필터링
-    const finalCandidates = [];
-    const seenTitles = new Set();
-    const seenImages = new Set();
+    // [네거티브 필터링] 주식, 증시, 단순 홍보성 키워드 배제
+    const NEGATIVE_KEYWORDS = [
+      '코스닥', '코스피', '주가', '상한가', '특징주', '증시', '거래소', '시황', '공모주', '투자유치',
+      '신제품 출시', '할인', '이벤트', '쿠폰', '체결식', 'MOU'
+    ];
 
-    for (const item of rawNewsData.slice(0, 30)) { // 상위 30개 정밀 검사
+    for (const item of rawNewsData.slice(0, 40)) { // 상위 40개 정밀 검사로 확장
+      // 1. 제목 노이즈 제거 및 중복 체크
       const cleanTitle = item.title.replace(/[^\wㄱ-ㅎㅏ-ㅣ가-힣]/g, '').substring(0, 15);
       if (seenTitles.has(cleanTitle)) continue;
+
+      // 2. 네거티브 키워드 필터링 (제목 및 요약문)
+      const isNegative = NEGATIVE_KEYWORDS.some(k => item.title.includes(k) || item.description.includes(k));
+      if (isNegative) {
+        console.log(`   - [필터링 제외] 네거티브 키워드 감지: ${item.title.substring(0, 20)}...`);
+        continue;
+      }
 
       // ===== 이미지 & 언론사 정보 추출 (다중 소스 전략) =====
       let currentImage = null;
@@ -249,7 +258,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
       if (currentImage) seenImages.add(currentImage);
       finalCandidates.push(item);
       
-      if (finalCandidates.length >= 15) break;
+      if (finalCandidates.length >= 25) break; // AI 후보군을 25개로 확장 (선택폭 확대)
     }
 
     // 이미지 추출 성공률 로그
@@ -277,9 +286,12 @@ async function fetchAndProcessNews(targetSectorId = null) {
             content: `당신은 탁월한 통찰력을 지닌 C-Level 산업 전략가입니다. 제공된 뉴스 목록과 다음의 리서치 가이드를 바탕으로 경영진 브리핑을 작성합니다.\n${priorityContext}${researchGuide}
 **핵심 지침:**
 1. **수량 확보**: 가능한 한 **반드시 8개의 뉴스 기사**를 엄선하십시오. 후보가 충분하다면 반드시 8개를 채워야 합니다.
-2. **기업/콘텐츠 다양성**: 동일한 기업이나 브랜드에 대한 기사는 **최대 2개**까지만 포함할 수 있습니다. 이미 유사한 내용을 다룬 언론사의 중복 보도는 배제하고, 최대한 다양한 관점과 주제를 선택하십시오.
-3. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, **반드시 모든 제목의 맨 앞에 [언론사명]을 포함하십시오.** (예: [매일경제] 신재생에너지 보급 확대)
-4. **JSON 출력 형식**: 반드시 JSON 형식으로만 응답하고, 다음의 객체 형태를 유지하십시오.
+2. **콘텐츠 엄선 (엄격)**: 다음 부류의 기사는 **절대 포함하지 마십시오.**
+   - 단순 주식 시황, 코스피/코스닥 지수 분석, 테마주 소식, 투자 유치 등 금융/증시 관련 정보
+   - 특정 제품의 단순 출시 홍보, 할인 이벤트, 쿠폰 발행 등 광고성 및 보도자료성 정보
+3. **기업/콘텐츠 다양성**: 동일한 기업이나 브랜드에 대한 기사는 **최대 2개**까지만 포함할 수 있습니다. 이미 유사한 내용을 다룬 언론사의 중복 보도는 배제하고, 최대한 다양한 관점과 주제를 선택하십시오.
+4. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, **반드시 모든 제목의 맨 앞에 [언론사명]을 포함하십시오.** (예: [매일경제] 신재생에너지 보급 확대)
+5. **JSON 출력 형식**: 반드시 JSON 형식으로만 응답하고, 다음의 객체 형태를 유지하십시오.
 {
   "news": [
     {
