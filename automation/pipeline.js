@@ -112,17 +112,22 @@ async function fetchAndProcessNews(targetSectorId = null) {
       console.log(`   💡 가이드라인 키워드 감지: [${keywords.join(', ')}]`);
     }
 
-    // 검색 시도 루프 (섹터명+키워드 -> 키워드 -> 섹터명 폴백)
+    // 검색 시도 루프 (섹터명 및 개별 키워드 다중 탐색 - 통합 병합 전략)
     let rawNewsData = [];
-    let searchAttempts;
+    const searchAttempts = [sector.name];
+    
     if (keywords.length > 0) {
-      // 괄호 등 특수문자 제거한 섹터명
       const cleanSectorName = sector.name.replace(/[^\w가-힣]/g, ' ').trim();
-      const combinedQuery = `${cleanSectorName} ${keywords.join(' ')}`.replace(/\s+/g, ' ');
-      searchAttempts = [combinedQuery, keywords.join(' '), sector.name];
-    } else {
-      searchAttempts = [sector.name];
+      keywords.forEach(kw => {
+        searchAttempts.push(`${cleanSectorName} ${kw}`);
+      });
+      // 혹시라도 모자랄까봐 키워드 단독 검색도 추가 (인테리어/건설 등 AND 파싱 방지)
+      keywords.forEach(kw => {
+        searchAttempts.push(kw);
+      });
     }
+
+    const uniqueNewsMap = new Map();
 
     for (const query of searchAttempts) {
       if (global.updateStatus) global.updateStatus(sector.id, 'working', `네이버 뉴스 탐색 시작 (쿼리: ${query})`, 'info');
@@ -130,10 +135,20 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
       const newsItems = await fetchNaverNews(query);
       if (newsItems && newsItems.length > 0) {
-        rawNewsData = newsItems;
-        break; // 검색 결과 확보 시 다음으로 진행
+        newsItems.forEach(item => {
+          if (!uniqueNewsMap.has(item.link)) {
+            uniqueNewsMap.set(item.link, item);
+          }
+        });
+      }
+      
+      // 유효 기사가 150개가 넘으면 속도를 위해 더 이상 검색하지 않음
+      if (uniqueNewsMap.size >= 150) {
+        break;
       }
     }
+
+    rawNewsData = Array.from(uniqueNewsMap.values());
 
     if (rawNewsData.length === 0) {
       if (global.updateStatus) global.updateStatus(sector.id, 'idle', `검색 결과 없음 (스킵)`, 'info');
