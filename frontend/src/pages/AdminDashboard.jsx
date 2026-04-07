@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -309,6 +310,11 @@ const AdminDashboard = () => {
             </button>
           ))}
         </nav>
+        <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <Link to="/workflow" style={{ display: 'block', textAlign: 'center', padding: '10px', fontSize: '13px', color: '#9ca3af', textDecoration: 'none', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}>
+            🔀 워크플로우
+          </Link>
+        </div>
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={() => { setToken(''); sessionStorage.removeItem('adminToken'); }}>로그아웃</button>
         </div>

@@ -5,6 +5,7 @@ import Hero from './components/Hero';
 import Sector from './components/Sector';
 import TelegramModal from './components/TelegramModal';
 import AdminDashboard from './pages/AdminDashboard';
+import WorkflowMonitor from './pages/WorkflowMonitor';
 import { SECTORS } from './data/mockData';
 import './App.css';
 
@@ -104,6 +105,7 @@ function App() {
       <Routes>
         <Route path="/" element={<MainLayout />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/workflow" element={<WorkflowMonitor />} />
       </Routes>
     </Router>
   );
