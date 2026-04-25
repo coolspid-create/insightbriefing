@@ -91,5 +91,46 @@ async function broadcastToTelegram(sectorId, newsItems) {
   // 텔레그램 속도 제한 방어
   await new Promise(resolve => setTimeout(resolve, 2000));
 }
+async function broadcastReportToTelegram(sectorId, report) {
+  console.log(`[Telegram Debug] ${sectorId} 섹터 리포트 알림 발송 시도 중...`);
+  
+  const botInfo = BOT_CONFIG[sectorId];
+  if (!botInfo || !botInfo.token || !botInfo.chatId) {
+    console.log(`[Telegram Error] '${sectorId}' 섹터의 봇 설정 누락.`);
+    return;
+  }
 
-module.exports = { broadcastToTelegram };
+  const sector = config.sectors.find(s => s.id === sectorId);
+  const sectorName = sector ? sector.name : botInfo.name;
+  
+  // Format message as requested
+  let message = `📊 <b>${sectorName} 주간 트렌드 리포트 발행</b>\n\n`;
+  message += `<b>[제목]</b>\n${report.title}\n\n`;
+  message += `<b>[한 줄 결론]</b>\n${report.one_line_summary}\n\n`;
+  message += `<b>[이번 주 핵심 이슈 3개]</b>\n`;
+  if (Array.isArray(report.key_issues)) {
+    report.key_issues.forEach((issue, idx) => {
+      message += `${idx + 1}. ${issue}\n`;
+    });
+  }
+  
+  const reportUrl = `https://ibrief.kr/reports/${report.id}`;
+  message += `\n🔗 <a href="${reportUrl}">리포트 원문 보기</a>\n`;
+
+  const TELEGRAM_URL = `https://api.telegram.org/bot${botInfo.token}/sendMessage`;
+
+  try {
+    await axios.post(TELEGRAM_URL, {
+      chat_id: botInfo.chatId,
+      text: message,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true
+    });
+    console.log(`[Telegram 발송] 리포트 알림 전송 성공!`);
+  } catch (err) {
+    console.error(`[Telegram 전송 오류]`, err.response ? err.response.data : err.message);
+  }
+}
+
+
+module.exports = { broadcastToTelegram, broadcastReportToTelegram };

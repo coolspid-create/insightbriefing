@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Sector from './components/Sector';
 import TelegramModal from './components/TelegramModal';
 import AdminDashboard from './pages/AdminDashboard';
 import WorkflowMonitor from './pages/WorkflowMonitor';
+import ReportsPage from './pages/ReportsPage';
+import ReportDetailPage from './pages/ReportDetailPage';
 import { SECTORS } from './data/mockData';
 import './App.css';
+
+// 페이지 전환 시 항상 최상단으로 스크롤을 리셋하는 컴포넌트
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
 
 const MainLayout = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,8 +113,11 @@ const MainLayout = () => {
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<MainLayout />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/reports/:id" element={<ReportDetailPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/workflow" element={<WorkflowMonitor />} />
       </Routes>

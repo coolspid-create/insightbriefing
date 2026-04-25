@@ -9,9 +9,9 @@ const bodyParser = require('body-parser');
 const fs = require('fs');
 const cron = require('node-cron');
 const { fetchAndProcessNews } = require('./pipeline');
-const { broadcastToTelegram } = require('./telegram');
+const { generateWeeklyReport } = require('./reportPipeline');
+const { broadcastToTelegram, broadcastReportToTelegram } = require('./telegram');
 const supabase = require('./supabaseClient');
-
 const app = express();
 app.use(cors({
   origin: [
@@ -291,6 +291,72 @@ app.post('/api/telegram/:sectorId', AdminAuth, async (req, res) => {
   }
 });
 
+// --- TREND REPORTS API ---
+
+// Generate Weekly Report (Admin Only)
+app.post('/api/reports/generate/:sectorId', AdminAuth, async (req, res) => {
+  const { sectorId } = req.params;
+  try {
+    updateStatus(sectorId, 'working', `[리포트] ${sectorId} 주간 리포트 생성 시작...`);
+    const reportData = await generateWeeklyReport(sectorId);
+    
+    // Send Telegram Notification
+    updateStatus(sectorId, 'working', `[리포트] 텔레그램 알림 전송 중...`);
+    await broadcastReportToTelegram(sectorId, reportData);
+    
+    updateStatus(sectorId, 'idle', `✅ [리포트] ${sectorId} 주간 리포트 생성 및 알림 완료!`, 'success');
+    res.json({ success: true, data: reportData });
+  } catch (error) {
+    console.error(`[Report Error] ${sectorId}:`, error);
+    updateStatus(sectorId, 'idle', `❌ [리포트-Error] ${sectorId}: ${error.message}`, 'error');
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get Report List
+app.get('/api/reports', async (req, res) => {
+  try {
+    const { sectorId, reportType, limit = 20 } = req.query;
+    
+    let query = supabase.from('trend_reports').select('id, report_type, sector_id, title, period_start, period_end, one_line_summary, created_at, status').order('period_end', { ascending: false }).order('sector_id', { ascending: true }).limit(limit);
+    
+    if (sectorId && sectorId !== 'all') {
+      query = query.eq('sector_id', sectorId);
+    }
+    if (reportType && reportType !== 'all') {
+      query = query.eq('report_type', reportType);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get Single Report Detail
+app.get('/api/reports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase.from('trend_reports').select('*').eq('id', id).single();
+    if (error) throw error;
+
+    // Fetch Source Articles
+    let sourceArticles = [];
+    if (data.source_article_ids && data.source_article_ids.length > 0) {
+       // Since source_article_ids are just urls now based on my implementation, I'll return them directly.
+       // The frontend can display them as links. 
+       // Ideally we could fetch the actual article title/image from DB, but URL is a good fallback.
+       sourceArticles = data.source_article_ids;
+    }
+    
+    res.json({ ...data, source_urls: sourceArticles });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 6. Bulk Action API (Enhanced with safety)
 app.post('/api/bulk/research', AdminAuth, async (req, res) => {
   try {
@@ -387,66 +453,7 @@ app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
   }
 });
 
-// --- DAILY AUTOMATION SCHEDULER (9:00 AM KST) (Fixed Integrity) ---
-async function dailyAutoWorkflow() {
-  console.log(`[Scheduler] ⏰ 오전 9시 정기 리서치 및 발송을 시작합니다.`);
-  try {
-    const { data: sectors, error: cfgError } = await supabase.from('sector_config').select('*').order('weight', { ascending: false });
-    if (cfgError) throw cfgError;
-    
-    updateStatus('all', 'working', '🌊 [자동] 정기 일괄 수집 시작', 'info');
-    for (const sector of sectors) {
-      try {
-        updateStatus(sector.id, 'working', `🔄 [자동] ${sector.name} 수집 중...`);
-        
-        const sectorDataRows = await fetchAndProcessNews(sector.id);
-        const sectorData = sectorDataRows[sector.id] || [];
-        
-        if (sectorData.length > 0) {
-          // 데이터가 성공적으로 수집된 경우에만 교체
-          await supabase.from('news_items').delete().eq('sector_id', sector.id);
-          await supabase.from('news_items').insert({ sector_id: sector.id, content: sectorData });
-
-          const historyData = sectorData.map(({ image, ...rest }) => rest);
-          await supabase.from('news_history').insert({ sector_id: sector.id, content: historyData });
-          
-          updateStatus(sector.id, 'idle', `✅ [자동] ${sector.name} 완료 (${sectorData.length}건)`, 'success');
-        } else {
-          updateStatus(sector.id, 'idle', `⚠️ [자동] ${sector.name}: 수집된 기사가 없어 기존 데이터를 유지합니다.`, 'info');
-        }
-      } catch (err) {
-        updateStatus(sector.id, 'idle', `❌ [자동-Error] ${sector.name}: ${err.message}`, 'error');
-      }
-    }
-    
-    clearNewsCache(); // 정기 작업 완료 후 캐시 초기화
-    
-    // 2. 전체 섹터 텔레그램 발송
-    updateStatus('all', 'working', '✈️ [자동] 정기 텔레그램 발송 시작', 'info');
-    for (const sector of sectors) {
-      try {
-        const { data } = await supabase.from('news_items').select('content').eq('sector_id', sector.id).single();
-        if (data && data.content && data.content.length > 0) {
-          await broadcastToTelegram(sector.id, data.content);
-          updateStatus(sector.id, 'idle', `✅ [자동-발송] ${sector.name} 성공`, 'success');
-        }
-      } catch (err) {
-        updateStatus(sector.id, 'idle', `❌ [자동-발송-Error] ${sector.name}: 발송 실패`, 'error');
-      }
-    }
-    
-    updateStatus('all', 'idle', '🏁 오늘의 정기 뉴스 브리핑이 모두 완료되었습니다.', 'success');
-  } catch (error) {
-    console.error(`[Scheduler Error]`, error);
-    updateStatus('all', 'idle', `🚨 [Scheduler Critical Error]: ${error.message}`, 'error');
-  }
-}
-
-// 매일 오전 9시(한국 시간) 실행
-cron.schedule('0 9 * * *', dailyAutoWorkflow, {
-  scheduled: true,
-  timezone: "Asia/Seoul"
-});
+// (Note: Automatic scheduling is now handled exclusively by scheduler.js)
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
