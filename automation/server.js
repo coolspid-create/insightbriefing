@@ -453,9 +453,12 @@ app.post('/api/bulk/telegram', AdminAuth, async (req, res) => {
   }
 });
 
-// (Note: Automatic scheduling is now handled exclusively by scheduler.js)
+// --- Scheduler Integration (cron jobs run inside the same process) ---
+const { initScheduler } = require('./scheduler');
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Backend API Server running on port ${PORT}`);
+  // 서버 기동 완료 후 스케줄러 초기화 (clearNewsCache 함수를 전달하여 캐시 동기화)
+  initScheduler(clearNewsCache);
 });
