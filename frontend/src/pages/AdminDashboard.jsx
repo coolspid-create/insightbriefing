@@ -311,8 +311,11 @@ const AdminDashboard = () => {
           ))}
         </nav>
         <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <Link to="/workflow" style={{ display: 'block', textAlign: 'center', padding: '10px', fontSize: '13px', color: '#9ca3af', textDecoration: 'none', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}>
+          <Link to="/workflow" style={{ display: 'block', textAlign: 'center', padding: '10px', fontSize: '13px', color: '#9ca3af', textDecoration: 'none', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s', marginBottom: '8px' }}>
             🔀 워크플로우
+          </Link>
+          <Link to="/admin/visitors" style={{ display: 'block', textAlign: 'center', padding: '10px', fontSize: '13px', color: '#9ca3af', textDecoration: 'none', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}>
+            📊 접속자 통계
           </Link>
         </div>
         <div className="sidebar-footer">

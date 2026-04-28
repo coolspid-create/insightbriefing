@@ -5,6 +5,7 @@ import Hero from './components/Hero';
 import Sector from './components/Sector';
 import TelegramModal from './components/TelegramModal';
 import AdminDashboard from './pages/AdminDashboard';
+import VisitorStatsPage from './pages/VisitorStatsPage';
 import WorkflowMonitor from './pages/WorkflowMonitor';
 import ReportsPage from './pages/ReportsPage';
 import ReportDetailPage from './pages/ReportDetailPage';
@@ -119,6 +120,7 @@ function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/reports/:id" element={<ReportDetailPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/visitors" element={<VisitorStatsPage />} />
         <Route path="/workflow" element={<WorkflowMonitor />} />
       </Routes>
     </Router>
