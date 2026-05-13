@@ -94,6 +94,7 @@ async function generateWeeklyReport(sectorId, customStart = null, customEnd = nu
 1. 단순 사실 나열을 피하고, 현상의 '이면(Why)'과 '파급력(So What)'을 도출하세요.
 2. 다양한 관점을 융합하여 산업 생태계 전체를 조망하는 분석을 제공하세요.
 3. 개별 데이터의 파편들을 연결하여 거대한 흐름(Macro Trend)을 찾아내고, 이를 바탕으로 날카로운 미래를 예측하세요.
+4. 텍스트 내부에 "(기사 1)", "(기사 3, 5)"와 같은 특정 기사 참조 표시는 일절 포함하지 마세요. 모든 문장은 참조 표시 없이 자연스럽게 작성해야 합니다.
 
 [분석 데이터]
 ${articleContext}

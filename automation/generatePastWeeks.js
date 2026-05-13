@@ -3,8 +3,8 @@ const supabase = require('./supabaseClient');
 
 async function generatePastWeeks() {
   const weeks = [
-    { start: '2026-04-06', end: '2026-04-12', label: '4/6(월)~4/12(일)' },
-    { start: '2026-04-13', end: '2026-04-19', label: '4/13(월)~4/19(일)' },
+    { start: '2026-04-27', end: '2026-05-03', label: '4/27(월)~5/3(일)' },
+    { start: '2026-05-04', end: '2026-05-10', label: '5/4(월)~5/10(일)' },
   ];
 
   const { data: sectors, error: sectorError } = await supabase
