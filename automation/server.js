@@ -174,6 +174,21 @@ function clearNewsCache() {
   lastCacheUpdate = null;
 }
 
+// --- Reports Caching System ---
+const reportsListCache = new Map();
+const reportsListCacheTime = new Map();
+const singleReportCache = new Map();
+const singleReportCacheTime = new Map();
+const REPORTS_CACHE_TTL = 10 * 60 * 1000; // 캐시 유효 시간: 10분
+
+function clearReportsCache() {
+  console.log('[System] 리포트 캐시가 무효화되었습니다.');
+  reportsListCache.clear();
+  reportsListCacheTime.clear();
+  singleReportCache.clear();
+  singleReportCacheTime.clear();
+}
+
 // 3. GET News from Supabase (Enhanced with In-Memory Caching)
 app.get('/api/news', async (req, res) => {
   try {
@@ -300,6 +315,9 @@ app.post('/api/reports/generate/:sectorId', AdminAuth, async (req, res) => {
     updateStatus(sectorId, 'working', `[리포트] ${sectorId} 주간 리포트 생성 시작...`);
     const reportData = await generateWeeklyReport(sectorId);
     
+    // Clear reports cache on new report generation
+    clearReportsCache();
+    
     // Send Telegram Notification
     updateStatus(sectorId, 'working', `[리포트] 텔레그램 알림 전송 중...`);
     await broadcastReportToTelegram(sectorId, reportData);
@@ -317,7 +335,15 @@ app.post('/api/reports/generate/:sectorId', AdminAuth, async (req, res) => {
 app.get('/api/reports', async (req, res) => {
   try {
     const { sectorId, reportType, limit = 20 } = req.query;
+    const cacheKey = `${sectorId || 'all'}_${reportType || 'all'}_${limit}`;
+    const now = Date.now();
+
+    if (reportsListCache.has(cacheKey) && (now - reportsListCacheTime.get(cacheKey) < REPORTS_CACHE_TTL)) {
+      console.log(`[Cache Hit] Serving reports list from cache for key: ${cacheKey}`);
+      return res.json(reportsListCache.get(cacheKey));
+    }
     
+    console.log(`[Cache Miss] Fetching reports list from Supabase for key: ${cacheKey}...`);
     let query = supabase.from('trend_reports').select('id, report_type, sector_id, title, period_start, period_end, one_line_summary, created_at, status').order('period_end', { ascending: false }).order('sector_id', { ascending: true }).limit(limit);
     
     if (sectorId && sectorId !== 'all') {
@@ -329,6 +355,10 @@ app.get('/api/reports', async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
+
+    reportsListCache.set(cacheKey, data);
+    reportsListCacheTime.set(cacheKey, now);
+
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -339,6 +369,14 @@ app.get('/api/reports', async (req, res) => {
 app.get('/api/reports/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const now = Date.now();
+
+    if (singleReportCache.has(id) && (now - singleReportCacheTime.get(id) < REPORTS_CACHE_TTL)) {
+      console.log(`[Cache Hit] Serving single report from cache for ID: ${id}`);
+      return res.json(singleReportCache.get(id));
+    }
+    
+    console.log(`[Cache Miss] Fetching single report from Supabase for ID: ${id}...`);
     const { data, error } = await supabase.from('trend_reports').select('*').eq('id', id).single();
     if (error) throw error;
 
@@ -351,7 +389,12 @@ app.get('/api/reports/:id', async (req, res) => {
        sourceArticles = data.source_article_ids;
     }
     
-    res.json({ ...data, source_urls: sourceArticles });
+    const responsePayload = { ...data, source_urls: sourceArticles };
+    
+    singleReportCache.set(id, responsePayload);
+    singleReportCacheTime.set(id, now);
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

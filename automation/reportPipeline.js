@@ -7,6 +7,22 @@ const openai = new OpenAI({
   timeout: 120000, // 2 mins for generating long report
 });
 
+async function callOpenAIWithRetry(params, maxRetries = 3, initialDelay = 2000) {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await openai.chat.completions.create(params);
+    } catch (error) {
+      attempt++;
+      console.warn(`[OpenAI Attempt ${attempt} failed]: ${error.message}`);
+      if (attempt >= maxRetries) throw error;
+      const delay = initialDelay * Math.pow(2, attempt - 1);
+      console.log(`Waiting ${delay}ms before next attempt...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 async function generateWeeklyReport(sectorId, customStart = null, customEnd = null) {
   try {
     // 1. Fetch config for sector details
@@ -19,30 +35,28 @@ async function generateWeeklyReport(sectorId, customStart = null, customEnd = nu
     if (cfgError) throw new Error(`Sector config error: ${cfgError.message}`);
     const sectorName = sectorConfig.name;
 
-    // 2. Calculate period (default: previous Mon~Sun)
+    // 2. Calculate period (default: previous Mon~Sun, forced to KST +09:00 timezone)
     let start, end;
     if (customStart && customEnd) {
-      start = new Date(customStart);
-      end = new Date(customEnd);
-      end.setHours(23, 59, 59, 999);
+      start = new Date(`${customStart}T00:00:00.000+09:00`);
+      end = new Date(`${customEnd}T23:59:59.999+09:00`);
     } else {
-      // When run on Monday, get last Mon~Sun
-      // When run on any other day, still get the most recent completed Mon~Sun
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ...
+      // Calculate KST-based relative Mon~Sun
+      const kstOffset = 9 * 60 * 60 * 1000;
+      const todayKst = new Date(Date.now() + kstOffset);
+      const dayOfWeek = todayKst.getUTCDay(); // 0=Sun, 1=Mon, ...
       
-      // Calculate last Sunday (end of previous week)
-      // If today is Monday(1), last Sunday was 1 day ago
-      // If today is Sunday(0), last Sunday was 7 days ago (the one before)
       const daysToLastSunday = dayOfWeek === 0 ? 7 : dayOfWeek;
-      end = new Date(today);
-      end.setDate(today.getDate() - daysToLastSunday);
-      end.setHours(23, 59, 59, 999);
+      const endKst = new Date(todayKst);
+      endKst.setUTCDate(todayKst.getUTCDate() - daysToLastSunday);
+      const endStr = endKst.toISOString().split('T')[0]; // 'YYYY-MM-DD' in KST
       
-      // Start = the Monday before that Sunday (6 days before Sunday)
-      start = new Date(end);
-      start.setDate(end.getDate() - 6);
-      start.setHours(0, 0, 0, 0);
+      const startKst = new Date(endKst);
+      startKst.setUTCDate(endKst.getUTCDate() - 6);
+      const startStr = startKst.toISOString().split('T')[0]; // 'YYYY-MM-DD' in KST
+      
+      start = new Date(`${startStr}T00:00:00.000+09:00`);
+      end = new Date(`${endStr}T23:59:59.999+09:00`);
     }
 
     // 3. Fetch history articles
@@ -108,7 +122,7 @@ ${articleContext}
   "trend_analysis": "대시보드용 요약(120자 내외)을 먼저 쓰고, 두 줄 개행(\\n\\n) 후 상세 분석(300자 내외)을 이어서 작성하세요.",
   "impact_analysis": "대시보드용 요약(120자 내외)을 먼저 쓰고, 두 줄 개행(\\n\\n) 후 상세 분석(300자 내외)을 이어서 작성하세요.",
   "future_outlook": "대시보드용 요약(120자 내외)을 먼저 쓰고, 두 줄 개행(\\n\\n) 후 상세 분석(300자 내외)을 이어서 작성하세요.",
-  "diagram_prompt": "이번 주 트렌드를 보여주는 Mermaid.js flowchart (TD) 문법 코드. (마크다운 백틱 제외, 순수 코드만). 반드시 graph TD 로 시작하고, 텍스트에 HTML 특수문자나 복잡한 괄호를 빼서 렌더링 에러가 나지 않도록 작성.",
+  "diagram_prompt": "이번 주 트렌드를 보여주는 Mermaid.js flowchart (TD) 문법 코드. (마크다운 백틱 제외, 순수 코드만). 반드시 graph TD 로 시작하고, 노드 라벨 텍스트는 반드시 큰따옴표로 감싸서 작성하십시오 (예: A[\"노드 설명\"]). 라벨 내부에는 특수기호나 괄호를 일절 포함하지 마십시오.",
   \"relevant_count\": \"(숫자) 제공된 ${articlesToAnalyze.length}건 중 실제로 ${sectorName} 산업과 연관된 기사 수를 정확히 세어 숫자만 입력\",
   \"source_indices\": \"(배열) 연관 기사 중 리포트 핵심 논지를 뒷받침하는 가장 중요한 기사 번호 최대 5개\"
 }
@@ -120,7 +134,7 @@ ${articleContext}
 
     console.log(`[Report] GPT 분석 요청 시작 (${sectorName}, 분석 기사 수: ${articlesToAnalyze.length})`);
     
-    const response = await openai.chat.completions.create({
+    const response = await callOpenAIWithRetry({
       model: "gpt-4o",
       messages: [
         { role: "system", content: "당신은 세계 최고 수준의 산업 동향 분석가이자 미래학자입니다. 제공된 데이터를 기반으로 입체적이고 전략적인 통찰이 담긴 JSON 형태의 리포트를 작성합니다. 모든 분석 필드(trend_analysis, impact_analysis, future_outlook)는 반드시 '요약내용\\n\\n상세내용' 형식을 지켜야 합니다." },

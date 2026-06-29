@@ -7,22 +7,27 @@ const ReportDetailPage = () => {
   const { id } = useParams();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const mermaidRef = useRef(null);
 
   useEffect(() => {
     fetchReport();
   }, [id]);
 
-
-
   const fetchReport = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
       const res = await fetch(`${API_BASE_URL}/api/reports/${id}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setReport(data);
     } catch (err) {
       console.error(err);
+      setError('리포트 상세 데이터를 불러오는 중 오류가 발생했습니다. 네트워크 상태를 확인해 주세요.');
     } finally {
       setLoading(false);
     }
@@ -34,6 +39,34 @@ const ReportDetailPage = () => {
         <Header />
         <div style={{ paddingTop: '150px', textAlign: 'center', color: 'var(--cd-text-secondary)' }}>
           리포트를 불러오는 중입니다...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-container" style={{ background: 'var(--cd-bg-main)', minHeight: '100vh' }}>
+        <Header />
+        <div style={{ paddingTop: '150px', textAlign: 'center', color: '#dc2626' }}>
+          <p style={{ marginBottom: '16px', fontWeight: '600' }}>{error}</p>
+          <button 
+            onClick={fetchReport}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'var(--cd-text-primary)',
+              color: 'var(--cd-bg-main)',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'opacity 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            다시 시도
+          </button>
         </div>
       </div>
     );

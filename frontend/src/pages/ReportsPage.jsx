@@ -9,6 +9,7 @@ import ArchiveAccordion from '../components/ArchiveAccordion';
 const ReportsPage = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('weekly'); // daily, weekly, monthly
   const [filterSector, setFilterSector] = useState('all');
 
@@ -18,6 +19,7 @@ const ReportsPage = () => {
 
   const fetchReports = async () => {
     setLoading(true);
+    setError(null);
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
       let url = `${API_BASE_URL}/api/reports?limit=50`;
@@ -25,10 +27,14 @@ const ReportsPage = () => {
       if (filterSector !== 'all') url += `&sectorId=${filterSector}`;
 
       const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setReports(data || []);
     } catch (err) {
       console.error('Failed to fetch reports', err);
+      setError('리포트를 불러오는 중 오류가 발생했습니다. 네트워크 상태를 확인해 주세요.');
     } finally {
       setLoading(false);
     }
@@ -163,6 +169,27 @@ const ReportsPage = () => {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--cd-text-secondary)' }}>
             리포트를 불러오는 중입니다...
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '60px', color: '#dc2626', background: 'var(--cd-bg-card)', borderRadius: '16px', border: '1px solid var(--cd-border)' }}>
+            <p style={{ marginBottom: '16px', fontWeight: '600' }}>{error}</p>
+            <button 
+              onClick={fetchReports}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--cd-text-primary)',
+                color: 'var(--cd-bg-main)',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              다시 시도
+            </button>
           </div>
         ) : reports.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--cd-text-secondary)', background: 'var(--cd-bg-card)', borderRadius: '16px', border: '1px solid var(--cd-border)' }}>

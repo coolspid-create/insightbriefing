@@ -69,6 +69,46 @@ async function fetchNaverNews(query) {
   }
 }
 
+function areArticlesSimilar(item1, item2) {
+  const title1 = item1.title || '';
+  const title2 = item2.title || '';
+  
+  const extractKeywords = (title) => {
+    const cleanTitle = title.replace(/\[[^\]]+\]/g, ''); // Remove brackets
+    const words = cleanTitle.split(/[^\wㄱ-ㅎㅏ-ㅣ가-힣]+/);
+    const particles = /(와|과|을|를|에|은|는|이|가|의|로|으로|에서|하고|했다|한다|했다가|에서|부터|까지|로써|로서|로의|에서|로구|으로|시장|공략|본격|출시|개소|선점|추진|진출|출범)$/;
+    return words
+      .map(w => w.replace(particles, ''))
+      .filter(w => w.length >= 2);
+  };
+  
+  const kw1 = extractKeywords(title1);
+  const kw2 = extractKeywords(title2);
+  
+  if (kw1.length === 0 || kw2.length === 0) return false;
+  
+  let commonCount = 0;
+  const set2 = new Set(kw2);
+  
+  kw1.forEach(w => {
+    if (set2.has(w)) {
+      commonCount++;
+    } else {
+      for (const w2 of kw2) {
+        if (w.length >= 3 && w2.length >= 3 && (w.includes(w2) || w2.includes(w))) {
+          commonCount++;
+          break;
+        }
+      }
+    }
+  });
+  
+  const minLen = Math.min(kw1.length, kw2.length);
+  const overlapRatio = commonCount / minLen;
+  
+  return (commonCount >= 2 && overlapRatio >= 0.3) || commonCount >= 3;
+}
+
 async function fetchAndProcessNews(targetSectorId = null) {
   const supabase = require('./supabaseClient');
 
@@ -276,13 +316,26 @@ async function fetchAndProcessNews(targetSectorId = null) {
         item.publisher = publisherName;
       }));
 
-      // 최종 후보군 추가 및 이미지 중복 확인
+      // 최종 후보군 추가 및 이미지/유사 기사 중복 확인 (최대 2개 허용)
       for (const { item, cleanTitle } of validChunkItems) {
         if (finalCandidates.length >= 30) break;
 
         if (item.image && seenImages.has(item.image)) {
           console.log(`   - [중복 제외] 이미지가 겹침: ${item.title.substring(0, 20)}...`);
-          // 중복 이미지로 판명되면 타이틀을 다시 제거 (다른 글을 받을 수 있게)
+          seenTitles.delete(cleanTitle);
+          continue;
+        }
+
+        // 유사 기사 중복 제한 체크
+        let dupCount = 0;
+        for (const candidate of finalCandidates) {
+          if (areArticlesSimilar(item, candidate)) {
+            dupCount++;
+          }
+        }
+
+        if (dupCount >= 2) {
+          console.log(`   - [중복 제외] 유사 기사 개수 초과 (이미 2개 존재): ${item.title.substring(0, 20)}...`);
           seenTitles.delete(cleanTitle);
           continue;
         }
