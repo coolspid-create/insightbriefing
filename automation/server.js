@@ -416,55 +416,42 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
     const yesterdayPV = yesterdayLogs.length;
     const yesterdayUV = new Set(yesterdayLogs.map(l => l.visitor_id)).size;
 
-    // 3. Fetch All logs for Cumulative, Monthly, and Yearly stats
-    const { data: allLogs, error: allLogsErr } = await supabase
-      .from('visitor_logs')
-      .select('visitor_id, created_at')
-      .order('created_at', { ascending: true });
+    // 3. Fetch Monthly, Yearly, and Cumulative stats from SQL views
+    const { data: monthlyStats, error: monthlyErr } = await supabase
+      .from('monthly_visitor_stats')
+      .select('*');
 
-    if (allLogsErr) throw allLogsErr;
+    if (monthlyErr) throw monthlyErr;
 
-    const totalPV = allLogs.length;
-    const totalUV = new Set(allLogs.map(l => l.visitor_id)).size;
+    const { data: yearlyStats, error: yearlyErr } = await supabase
+      .from('yearly_visitor_stats')
+      .select('*');
 
-    const yearlyStatsMap = {};
-    const monthlyStatsMap = {};
+    if (yearlyErr) throw yearlyErr;
 
-    allLogs.forEach(log => {
-      const date = new Date(log.created_at);
-      const kstDate = new Date(date.getTime() + kstOffset);
-      const year = kstDate.getUTCFullYear().toString();
-      const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
-      const yearMonth = `${year}-${month}`;
+    const { data: cumulativeStats, error: cumulativeErr } = await supabase
+      .from('cumulative_visitor_stats')
+      .select('*')
+      .single();
 
-      // Yearly stats
-      if (!yearlyStatsMap[year]) {
-        yearlyStatsMap[year] = { pv: 0, visitors: new Set() };
-      }
-      yearlyStatsMap[year].pv += 1;
-      yearlyStatsMap[year].visitors.add(log.visitor_id);
+    if (cumulativeErr) throw cumulativeErr;
 
-      // Monthly stats
-      if (!monthlyStatsMap[yearMonth]) {
-        monthlyStatsMap[yearMonth] = { pv: 0, visitors: new Set() };
-      }
-      monthlyStatsMap[yearMonth].pv += 1;
-      monthlyStatsMap[yearMonth].visitors.add(log.visitor_id);
+    const totalPV = cumulativeStats?.total_pv || 0;
+    const totalUV = cumulativeStats?.total_uv || 0;
+
+    // Map KST SQL view formats to match active chart formatting
+    const monthlyVisitors = (monthlyStats || []).map(m => {
+      const parts = m.date.split('-');
+      return {
+        date: `${parts[0]}-${parts[1]}`,
+        count: m.count
+      };
     });
 
-    const yearlyVisitors = Object.keys(yearlyStatsMap).map(year => ({
-      date: `${year}년`,
-      count: yearlyStatsMap[year].visitors.size
-    })).sort((a, b) => a.date.localeCompare(b.date));
-
-    const monthlyVisitors = Object.keys(monthlyStatsMap).map(ym => {
-      const parts = ym.split('-');
-      const shortYear = parts[0].substring(2);
-      return {
-        date: `${shortYear}-${parts[1]}`,
-        count: monthlyStatsMap[ym].visitors.size
-      };
-    }).sort((a, b) => a.date.localeCompare(b.date));
+    const yearlyVisitors = (yearlyStats || []).map(y => ({
+      date: y.date,
+      count: y.count
+    }));
 
     // 4. Last 7 days visitor trend (including today)
     const sevenDaysAgoStartUtc = new Date(todayStartUtc.getTime() - 6 * 24 * 60 * 60 * 1000);
