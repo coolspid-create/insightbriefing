@@ -532,6 +532,7 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
 
     const todayAvgDuration = todayUV > 0 ? (todayPV / todayUV).toFixed(1) + ' PV/UV' : '0 PV/UV';
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({
       todayStats: {
         totalVisitors: todayPV,

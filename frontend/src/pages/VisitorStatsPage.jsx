@@ -17,7 +17,7 @@ const VisitorStatsPage = () => {
       try {
         setLoading(true);
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-        const response = await fetch(`${API_BASE_URL}/api/admin/visitor-stats`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/visitor-stats?t=${Date.now()}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
