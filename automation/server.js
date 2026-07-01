@@ -12,6 +12,45 @@ const { fetchAndProcessNews } = require('./pipeline');
 const { generateWeeklyReport } = require('./reportPipeline');
 const { broadcastToTelegram, broadcastReportToTelegram } = require('./telegram');
 const supabase = require('./supabaseClient');
+const crypto = require('crypto');
+
+function parseUserAgent(uaString) {
+  let browser = 'Others';
+  let os = 'Others';
+
+  if (!uaString) return { browser, os };
+
+  // Browser detection
+  if (uaString.includes('Firefox')) {
+    browser = 'Firefox';
+  } else if (uaString.includes('SamsungBrowser')) {
+    browser = 'Samsung';
+  } else if (uaString.includes('Opera') || uaString.includes('OPR')) {
+    browser = 'Opera';
+  } else if (uaString.includes('Edge') || uaString.includes('Edg')) {
+    browser = 'Edge';
+  } else if (uaString.includes('Chrome')) {
+    browser = 'Chrome';
+  } else if (uaString.includes('Safari')) {
+    browser = 'Safari';
+  }
+
+  // OS detection
+  if (uaString.includes('Windows')) {
+    os = 'Windows';
+  } else if (uaString.includes('Macintosh') || uaString.includes('Mac OS X')) {
+    os = 'macOS';
+  } else if (uaString.includes('iPhone') || uaString.includes('iPad') || uaString.includes('iPod')) {
+    os = 'iOS';
+  } else if (uaString.includes('Android')) {
+    os = 'Android';
+  } else if (uaString.includes('Linux')) {
+    os = 'Linux';
+  }
+
+  return { browser, os };
+}
+
 const app = express();
 app.use(cors({
   origin: [
@@ -303,6 +342,174 @@ app.post('/api/telegram/:sectorId', AdminAuth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// --- VISITOR TRACKING & STATS API ---
+
+// 5-1. Track Visit
+app.post('/api/tracking/visit', async (req, res) => {
+  try {
+    const { visitorId, path: pagePath, referer } = req.body;
+    if (!visitorId || !pagePath) {
+      return res.status(400).json({ error: 'visitorId and path are required' });
+    }
+
+    const userAgentStr = req.headers['user-agent'] || '';
+    const { browser, os } = parseUserAgent(userAgentStr);
+
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
+
+    const { error } = await supabase.from('visitor_logs').insert({
+      visitor_id: visitorId,
+      ip_hash: ipHash,
+      browser_name: browser,
+      os_name: os,
+      path: pagePath,
+      referer: referer || null
+    });
+
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Tracking Error] Failed to log visit:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5-2. Get Visitor Stats (Admin Only)
+app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    // KST Offset (+9 Hours)
+    const kstOffset = 9 * 60 * 60 * 1000;
+    const todayKst = new Date(now.getTime() + kstOffset);
+    todayKst.setUTCHours(0, 0, 0, 0); // KST 00:00:00
+    const todayStartUtc = new Date(todayKst.getTime() - kstOffset);
+
+    const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEndUtc = new Date(todayStartUtc.getTime() - 1);
+
+    // Today's logs
+    const { data: todayLogs, error: todayErr } = await supabase
+      .from('visitor_logs')
+      .select('visitor_id, browser_name, created_at')
+      .gte('created_at', todayStartUtc.toISOString());
+
+    if (todayErr) throw todayErr;
+
+    // Yesterday's logs
+    const { data: yesterdayLogs, error: yestErr } = await supabase
+      .from('visitor_logs')
+      .select('visitor_id, created_at')
+      .gte('created_at', yesterdayStartUtc.toISOString())
+      .lte('created_at', yesterdayEndUtc.toISOString());
+
+    if (yestErr) throw yestErr;
+
+    const todayPV = todayLogs.length;
+    const todayUV = new Set(todayLogs.map(l => l.visitor_id)).size;
+
+    const yesterdayPV = yesterdayLogs.length;
+    const yesterdayUV = new Set(yesterdayLogs.map(l => l.visitor_id)).size;
+
+    // Last 7 days visitor trend (including today)
+    const sevenDaysAgoStartUtc = new Date(todayStartUtc.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+    const { data: trendLogs, error: trendErr } = await supabase
+      .from('visitor_logs')
+      .select('visitor_id, created_at')
+      .gte('created_at', sevenDaysAgoStartUtc.toISOString());
+
+    if (trendErr) throw trendErr;
+
+    const dailyVisitors = [];
+    for (let i = 6; i >= 0; i--) {
+      const dateOffset = i * 24 * 60 * 60 * 1000;
+      const dayStart = new Date(todayStartUtc.getTime() - dateOffset);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+      const dayLogs = trendLogs.filter(l => {
+        const t = new Date(l.created_at).getTime();
+        return t >= dayStart.getTime() && t <= dayEnd.getTime();
+      });
+
+      const dayUV = new Set(dayLogs.map(l => l.visitor_id)).size;
+
+      const kstDay = new Date(dayStart.getTime() + kstOffset);
+      const mm = String(kstDay.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(kstDay.getUTCDate()).padStart(2, '0');
+      
+      dailyVisitors.push({
+        date: `${mm}-${dd}`,
+        count: dayUV
+      });
+    }
+
+    // Browser Stats (Last 30 days)
+    const thirtyDaysAgoStartUtc = new Date(todayStartUtc.getTime() - 29 * 24 * 60 * 60 * 1000);
+    const { data: browserLogs, error: browserErr } = await supabase
+      .from('visitor_logs')
+      .select('browser_name')
+      .gte('created_at', thirtyDaysAgoStartUtc.toISOString());
+
+    if (browserErr) throw browserErr;
+
+    const browserCounts = {};
+    let totalBrowserLogs = browserLogs.length;
+
+    browserLogs.forEach(l => {
+      const b = l.browser_name || 'Others';
+      browserCounts[b] = (browserCounts[b] || 0) + 1;
+    });
+
+    const browserMap = ['Chrome', 'Safari', 'Edge'];
+    let browserStats = browserMap.map(name => {
+      const count = browserCounts[name] || 0;
+      const percent = totalBrowserLogs > 0 ? Math.round((count / totalBrowserLogs) * 100) : 0;
+      return { name, percent };
+    });
+
+    const matchedCount = browserMap.reduce((acc, name) => acc + (browserCounts[name] || 0), 0);
+    const othersCount = totalBrowserLogs - matchedCount;
+    const othersPercent = totalBrowserLogs > 0 ? Math.round((othersCount / totalBrowserLogs) * 100) : 0;
+    browserStats.push({ name: 'Others', percent: othersPercent });
+
+    // Calculate trends
+    let pvTrend = 0;
+    if (yesterdayPV > 0) {
+      pvTrend = Math.round(((todayPV - yesterdayPV) / yesterdayPV) * 100);
+    } else if (todayPV > 0) {
+      pvTrend = 100;
+    }
+
+    let uvTrend = 0;
+    if (yesterdayUV > 0) {
+      uvTrend = Math.round(((todayUV - yesterdayUV) / yesterdayUV) * 100);
+    } else if (todayUV > 0) {
+      uvTrend = 100;
+    }
+
+    const todayAvgDuration = todayUV > 0 ? (todayPV / todayUV).toFixed(1) + ' PV/UV' : '0 PV/UV';
+
+    res.json({
+      todayStats: {
+        totalVisitors: todayPV,
+        uniqueVisitors: todayUV,
+        pageViews: todayPV,
+        avgDuration: todayAvgDuration,
+        pvTrend: pvTrend,
+        uvTrend: uvTrend
+      },
+      dailyVisitors,
+      browserStats
+    });
+
+  } catch (err) {
+    console.error('[Stats Error] Failed to compute visitor stats:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

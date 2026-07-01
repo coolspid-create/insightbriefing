@@ -21,6 +21,36 @@ const ScrollToTop = () => {
   return null;
 };
 
+// 페이지 뷰 및 접속자 행동 추적 컴포넌트
+const VisitorTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    // 1. visitorId 확인 및 없을 경우 임시 ID 자동 생성
+    let visitorId = localStorage.getItem('ib_visitor_id');
+    if (!visitorId) {
+      visitorId = 'visitor_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+      localStorage.setItem('ib_visitor_id', visitorId);
+    }
+
+    // 2. 백엔드 전송
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+    fetch(`${API_BASE_URL}/api/tracking/visit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        visitorId,
+        path: location.pathname,
+        referer: document.referrer
+      })
+    }).catch(err => console.error('Tracking log failed:', err));
+  }, [location.pathname]);
+
+  return null;
+};
+
 const MainLayout = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newsData, setNewsData] = useState(null);
@@ -115,6 +145,7 @@ function App() {
   return (
     <Router>
       <ScrollToTop />
+      <VisitorTracker />
       <Routes>
         <Route path="/" element={<MainLayout />} />
         <Route path="/reports" element={<ReportsPage />} />
