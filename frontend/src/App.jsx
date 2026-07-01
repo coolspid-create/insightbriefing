@@ -34,7 +34,7 @@ const VisitorTracker = () => {
     }
 
     // 2. 백엔드 전송
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
     fetch(`${API_BASE_URL}/api/tracking/visit`, {
       method: 'POST',
       headers: {

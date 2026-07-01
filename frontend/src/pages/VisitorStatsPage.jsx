@@ -8,6 +8,7 @@ const VisitorStatsPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [chartTab, setChartTab] = useState('7days'); // '7days', 'monthly', 'yearly'
   
   useEffect(() => {
     if (!token) return;
@@ -15,7 +16,7 @@ const VisitorStatsPage = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
         const response = await fetch(`${API_BASE_URL}/api/admin/visitor-stats`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -56,11 +57,29 @@ const VisitorStatsPage = () => {
     pageViews: 0,
     avgDuration: '0 PV/UV',
     pvTrend: 0,
-    uvTrend: 0
+    uvTrend: 0,
+    cumulativePV: 0,
+    cumulativeUV: 0
   };
 
   const dailyVisitors = stats?.dailyVisitors || [];
+  const monthlyVisitors = stats?.monthlyVisitors || [];
+  const yearlyVisitors = stats?.yearlyVisitors || [];
   const browserStats = stats?.browserStats || [];
+
+  // Determine active dataset for the chart
+  let activeChartData = [];
+  let chartTitle = '';
+  if (chartTab === '7days') {
+    activeChartData = dailyVisitors;
+    chartTitle = '최근 7일 방문자 추이';
+  } else if (chartTab === 'monthly') {
+    activeChartData = monthlyVisitors;
+    chartTitle = '월별 순 방문자 추이';
+  } else {
+    activeChartData = yearlyVisitors;
+    chartTitle = '연도별 순 방문자 추이';
+  }
 
   return (
     <div className="admin-layout">
@@ -132,25 +151,49 @@ const VisitorStatsPage = () => {
                 <div className="stat-value">{todayStats.avgDuration}</div>
                 <div className="stat-trend positive" style={{ color: '#00E676' }}>활동성 지표</div>
               </div>
+              <div className="stat-card" style={{ borderLeft: '3px solid #8b6b3f' }}>
+                <h3>누적 페이지뷰 (PV)</h3>
+                <div className="stat-value" style={{ color: '#8b6b3f' }}>{todayStats.cumulativePV.toLocaleString()}</div>
+                <div className="stat-trend positive" style={{ color: '#8b6b3f' }}>전체 이용률</div>
+              </div>
+              <div className="stat-card" style={{ borderLeft: '3px solid #8b6b3f' }}>
+                <h3>누적 순 방문자수 (UV)</h3>
+                <div className="stat-value" style={{ color: '#8b6b3f' }}>{todayStats.cumulativeUV.toLocaleString()}</div>
+                <div className="stat-trend positive" style={{ color: '#8b6b3f' }}>전체 방문객</div>
+              </div>
             </div>
 
             <div className="charts-container">
               <div className="chart-card">
-                <div className="panel-header">
-                  <h3>최근 7일 방문자 추이</h3>
+                <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3>{chartTitle}</h3>
+                  <div className="tab-menu" style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => setChartTab('7days')} 
+                      style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: '15px', fontSize: '12px', cursor: 'pointer', backgroundColor: chartTab === '7days' ? '#8b6b3f' : '#f9fafb', color: chartTab === '7days' ? 'white' : '#4b5563', fontWeight: '600' }}
+                    >7일</button>
+                    <button 
+                      onClick={() => setChartTab('monthly')} 
+                      style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: '15px', fontSize: '12px', cursor: 'pointer', backgroundColor: chartTab === 'monthly' ? '#8b6b3f' : '#f9fafb', color: chartTab === 'monthly' ? 'white' : '#4b5563', fontWeight: '600' }}
+                    >월별</button>
+                    <button 
+                      onClick={() => setChartTab('yearly')} 
+                      style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: '15px', fontSize: '12px', cursor: 'pointer', backgroundColor: chartTab === 'yearly' ? '#8b6b3f' : '#f9fafb', color: chartTab === 'yearly' ? 'white' : '#4b5563', fontWeight: '600' }}
+                    >연도별</button>
+                  </div>
                 </div>
-                {dailyVisitors.length === 0 ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--cd-text-light)', opacity: 0.5 }}>
+                {activeChartData.length === 0 ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '250px', color: 'var(--cd-text-light)', opacity: 0.5 }}>
                     표시할 통계 데이터가 없습니다.
                   </div>
                 ) : (
                   <div className="bar-chart">
-                    {dailyVisitors.map((item, idx) => {
-                      const maxCount = Math.max(...dailyVisitors.map(d => d.count));
+                    {activeChartData.map((item, idx) => {
+                      const maxCount = Math.max(...activeChartData.map(d => d.count));
                       const heightPercent = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
                       return (
                         <div key={idx} className="bar-column">
-                          <div className="bar-value">{item.count}</div>
+                          <div className="bar-value">{item.count.toLocaleString()}명</div>
                           <div className="bar-fill" style={{ height: `${heightPercent}%` }}></div>
                           <div className="bar-label">{item.date}</div>
                         </div>

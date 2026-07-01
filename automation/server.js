@@ -57,7 +57,8 @@ app.use(cors({
     'https://insightbriefing.vercel.app', 
     'https://ibrief.kr', 
     'https://www.ibrief.kr',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
   ],
   credentials: true
 }));
@@ -392,7 +393,7 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
     const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
     const yesterdayEndUtc = new Date(todayStartUtc.getTime() - 1);
 
-    // Today's logs
+    // 1. Fetch Today's logs
     const { data: todayLogs, error: todayErr } = await supabase
       .from('visitor_logs')
       .select('visitor_id, browser_name, created_at')
@@ -400,7 +401,7 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
 
     if (todayErr) throw todayErr;
 
-    // Yesterday's logs
+    // 2. Fetch Yesterday's logs
     const { data: yesterdayLogs, error: yestErr } = await supabase
       .from('visitor_logs')
       .select('visitor_id, created_at')
@@ -415,7 +416,57 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
     const yesterdayPV = yesterdayLogs.length;
     const yesterdayUV = new Set(yesterdayLogs.map(l => l.visitor_id)).size;
 
-    // Last 7 days visitor trend (including today)
+    // 3. Fetch All logs for Cumulative, Monthly, and Yearly stats
+    const { data: allLogs, error: allLogsErr } = await supabase
+      .from('visitor_logs')
+      .select('visitor_id, created_at')
+      .order('created_at', { ascending: true });
+
+    if (allLogsErr) throw allLogsErr;
+
+    const totalPV = allLogs.length;
+    const totalUV = new Set(allLogs.map(l => l.visitor_id)).size;
+
+    const yearlyStatsMap = {};
+    const monthlyStatsMap = {};
+
+    allLogs.forEach(log => {
+      const date = new Date(log.created_at);
+      const kstDate = new Date(date.getTime() + kstOffset);
+      const year = kstDate.getUTCFullYear().toString();
+      const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+      const yearMonth = `${year}-${month}`;
+
+      // Yearly stats
+      if (!yearlyStatsMap[year]) {
+        yearlyStatsMap[year] = { pv: 0, visitors: new Set() };
+      }
+      yearlyStatsMap[year].pv += 1;
+      yearlyStatsMap[year].visitors.add(log.visitor_id);
+
+      // Monthly stats
+      if (!monthlyStatsMap[yearMonth]) {
+        monthlyStatsMap[yearMonth] = { pv: 0, visitors: new Set() };
+      }
+      monthlyStatsMap[yearMonth].pv += 1;
+      monthlyStatsMap[yearMonth].visitors.add(log.visitor_id);
+    });
+
+    const yearlyVisitors = Object.keys(yearlyStatsMap).map(year => ({
+      date: `${year}년`,
+      count: yearlyStatsMap[year].visitors.size
+    })).sort((a, b) => a.date.localeCompare(b.date));
+
+    const monthlyVisitors = Object.keys(monthlyStatsMap).map(ym => {
+      const parts = ym.split('-');
+      const shortYear = parts[0].substring(2);
+      return {
+        date: `${shortYear}-${parts[1]}`,
+        count: monthlyStatsMap[ym].visitors.size
+      };
+    }).sort((a, b) => a.date.localeCompare(b.date));
+
+    // 4. Last 7 days visitor trend (including today)
     const sevenDaysAgoStartUtc = new Date(todayStartUtc.getTime() - 6 * 24 * 60 * 60 * 1000);
 
     const { data: trendLogs, error: trendErr } = await supabase
@@ -448,7 +499,7 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
       });
     }
 
-    // Browser Stats (Last 30 days)
+    // 5. Browser Stats (Last 30 days)
     const thirtyDaysAgoStartUtc = new Date(todayStartUtc.getTime() - 29 * 24 * 60 * 60 * 1000);
     const { data: browserLogs, error: browserErr } = await supabase
       .from('visitor_logs')
@@ -501,9 +552,13 @@ app.get('/api/admin/visitor-stats', AdminAuth, async (req, res) => {
         pageViews: todayPV,
         avgDuration: todayAvgDuration,
         pvTrend: pvTrend,
-        uvTrend: uvTrend
+        uvTrend: uvTrend,
+        cumulativePV: totalPV,
+        cumulativeUV: totalUV
       },
       dailyVisitors,
+      monthlyVisitors,
+      yearlyVisitors,
       browserStats
     });
 
