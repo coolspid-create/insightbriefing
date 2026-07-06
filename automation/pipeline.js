@@ -22,8 +22,11 @@ const openai = new OpenAI({
 
 const NEGATIVE_KEYWORDS = [
   '특징주', '급등', '상한가', '하한가', '목표가', '매수', '매도', '종목', '증시', '코스닥', '코스피', '나스닥',
-  '프로모션', '기획전', '할인', '혜택', '이벤트', '사전예약', '출시기념', '체험단', '신제품 출시'
+  '프로모션', '기획전', '할인', '혜택', '이벤트', '사전예약', '출시기념', '체험단', '신제품 출시',
+  '업무협약', 'MOU', '협약 체결', 'MOU 체결', '사회공헌', '기부', '봉사활동', '전달식',
+  '대상 수상', '인증 획득', '인증 취득', '선정됐다', '수상했다', '론칭', '런칭'
 ];
+
 
 async function fetchNaverNews(query) {
   try {
@@ -201,7 +204,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
     // URL에서 이미지 및 메타 추출 시도하는 헬퍼 함수
     const extractFromUrl = async (url) => {
-      if (!url) return { image: null, publisher: null };
+      if (!url) return { image: null, publisher: null, leadText: null };
       try {
         const pageRes = await axios.get(url, {
           timeout: 5000,
@@ -215,6 +218,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
         const html = pageRes.data;
         let img = null;
         let pub = null;
+        let leadText = null;
 
         // [전략 1] og:image (content가 앞에 오는 패턴도 대응)
         const ogImg = html.match(/<meta[^>]*property=['"]og:image['"][^>]*content=['"]([^'"]+)['"]/i) ||
@@ -255,9 +259,35 @@ async function fetchAndProcessNews(targetSectorId = null) {
           html.match(/<meta[^>]*content=['"]([^'"]+)['"][^>]*property=['"]og:site_name['"]/i);
         if (siteMatch && siteMatch[1]) pub = siteMatch[1];
 
-        return { image: img, publisher: pub };
+        // 본문 텍스트 추출 시도 (첫 800자)
+        const bodyStartMatch = html.match(/<(?:div|article|section)[^>]*(?:id|class)=['"][^'"]*(?:newsct_article|article_body|news_body|article_content|articeBody|nbd_article|articleBodyContents)[^'"]*['"][^>]*>/i);
+        if (bodyStartMatch) {
+          const startIndex = html.indexOf(bodyStartMatch[0]) + bodyStartMatch[0].length;
+          let rawBody = html.substring(startIndex, startIndex + 3500); // 여유있게 잘라옴
+          
+          rawBody = rawBody.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+          rawBody = rawBody.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+          rawBody = rawBody.replace(/<!--[\s\S]*?-->/g, '');
+          
+          let cleanText = rawBody.replace(/<[^>]*>?/g, ' ');
+          cleanText = cleanText
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim();
+            
+          if (cleanText.length > 50) {
+            leadText = cleanText.substring(0, 800); // 800자 추출 (사용자 피드백 반영)
+          }
+        }
+
+        return { image: img, publisher: pub, leadText: leadText };
       } catch (e) {
-        return { image: null, publisher: null };
+        return { image: null, publisher: null, leadText: null };
       }
     };
 
@@ -282,20 +312,23 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
       if (validChunkItems.length === 0) continue;
 
-      // 이미지 및 언론사 정보 병렬 추출 (타임아웃 방지)
+      // 이미지, 언론사 정보, 본문 리드문 병렬 추출 (타임아웃 방지)
       await Promise.all(validChunkItems.map(async (data) => {
         const { item } = data;
         let currentImage = null;
         let publisherName = null;
+        let currentLeadText = null;
 
         const naverResult = await extractFromUrl(item.link);
         currentImage = naverResult.image;
         publisherName = naverResult.publisher;
+        currentLeadText = naverResult.leadText;
 
-        if (!currentImage && item.original_link && item.original_link !== item.link) {
+        if ((!currentImage || !currentLeadText) && item.original_link && item.original_link !== item.link) {
           const origResult = await extractFromUrl(item.original_link);
-          if (origResult.image) currentImage = origResult.image;
+          if (!currentImage && origResult.image) currentImage = origResult.image;
           if (!publisherName && origResult.publisher) publisherName = origResult.publisher;
+          if (!currentLeadText && origResult.leadText) currentLeadText = origResult.leadText;
         }
 
         if (currentImage && !currentImage.startsWith('http')) {
@@ -314,6 +347,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
         item.image = currentImage;
         item.publisher = publisherName;
+        item.leadText = currentLeadText;
       }));
 
       // 최종 후보군 추가 및 이미지/유사 기사 중복 확인 (최대 2개 허용)
@@ -355,34 +389,35 @@ async function fetchAndProcessNews(targetSectorId = null) {
 
     if (global.updateStatus) global.updateStatus(sector.id, 'working', `중복 제거 완료 (${finalCandidates.length}건 유효, 이미지 ${imgSuccessCount}건). AI 최종 브리핑 생성 중...`, 'info');
 
-    let priorityContext = `산업분야(${sector.name})의 전문 컨설팅 브리핑을 작성하십시오. 중복된 내용의 기사(다른 언론사의 동일 보도)는 배제하고, 다양한 관점의 소식을 포함하십시오.`;
+    let priorityContext = `산업분야(${sector.name})의 주요 뉴스를 객관적으로 전달하는 브리핑을 작성하십시오. 중복된 내용의 기사(다른 언론사의 동일 보도)는 배제하고, 다양한 관점의 소식을 포함하십시오.`;
     if (sector.isUrgent) {
-      priorityContext = `[긴급 대응 전략 적용] ${sector.name} 관련 비즈니스 리프크 및 안전 위협 동향을 최우선 스캔하십시오. 중복 기사는 배제합니다.`;
+      priorityContext = `[긴급 대응 전략 적용] ${sector.name} 관련 비즈니스 리스크 및 안전 위협 동향을 최우선 스캔하되, 객관적 팩트만을 전달하십시오. 중복 기사는 배제합니다.`;
     }
 
     const researchGuide = `\n\n[현재 섹터 리서치 가이드라인]\n${sector.researchSpecs}`;
 
     // 2. 수집된 네이버 뉴스를 OpenAI (GPT)로 요약/재가공
     try {
-      console.log(`   └ [AI] 실제 기사 ${finalCandidates.length}건 분석 및 비즈니스 임팩트 도출 중...`);
+      console.log(`   └ [AI] 실제 기사 ${finalCandidates.length}건 분석 및 팩트 기반 요약 생성 중...`);
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `당신은 탁월한 통찰력을 지닌 C-Level 산업 전략가입니다. 제공된 뉴스 목록과 다음의 리서치 가이드를 바탕으로 경영진 브리핑을 작성합니다.\n${priorityContext}${researchGuide}
+            content: `당신은 탁월하고 신뢰할 수 있는 산업 분석가입니다. 제공된 뉴스 목록과 다음의 리서치 가이드를 바탕으로 팩트 중심의 뉴스 브리핑을 작성합니다.\n${priorityContext}${researchGuide}
 **핵심 지침:**
 1. **수량 확보**: 가능한 한 **반드시 8개의 뉴스 기사**를 엄선하십시오. 후보가 충분하다면 반드시 8개를 채워야 합니다.
 2. **엄격한 배제 원칙**: "특징주", "단순 주가 변동", "주식 시장 분석(코스피, 코스닥, 나스닥 등)"을 다루는 기사나, "신제품 출시", "이벤트 프로모션", "기업의 단순 홍보용 보도자료"는 0순위로 배제하십시오. 산업의 거시적 동향, 기술 혁신, 비즈니스 전략, 정책 변화에 집중하십시오.
 3. **기업/콘텐츠 다양성**: 동일한 기업이나 브랜드에 대한 기사는 **최대 2개**까지만 포함할 수 있습니다. 이미 유사한 내용을 다룬 언론사의 중복 보도는 배제하고, 최대한 다양한 관점과 주제를 선택하십시오.
 4. **언론사명 정확성**: 각 기사의 'publisher' 필드를 우선 사용하고, **반드시 모든 제목의 맨 앞에 [언론사명]을 포함하십시오.** (예: [매일경제] 신재생에너지 보급 확대)
-5. **JSON 출력 형식**: 반드시 JSON 형식으로만 응답하고, 다음의 객체 형태를 유지하십시오.
+5. **팩트 중심 요약**: 요약문(summary)은 작성자의 주관적 해석, 예측, 비즈니스 영향 분석, 의견을 철저히 배제하고 **기사 본문에 적힌 객관적인 사실(Fact)만을 바탕으로 1~2문장으로 건조하게 작성**하십시오.
+6. **JSON 출력 형식**: 반드시 JSON 형식으로만 응답하고, 다음의 객체 형태를 유지하십시오.
 {
   "news": [
     {
       "title": "[언론사명] 헤드라인",
-      "summary": "핵심 내용(산업 영향 포함) 1~2문장 요약",
+      "summary": "기사 본문에 명시된 객관적 사실(Fact)만 1~2문장 요약 (주관적인 해석, 의견, 영향, 전망 배제)",
       "link": "URL"
     }
   ]
@@ -390,7 +425,7 @@ async function fetchAndProcessNews(targetSectorId = null) {
           },
           {
             role: "user",
-            content: `다음 뉴스 데이터 중 가장 비즈니스 가치가 높은 8개를 엄선하여 JSON으로 응답하십시오 (현재 후보군: ${finalCandidates.length}건):\n${JSON.stringify(finalCandidates.map(({ title, description, link, publisher }) => ({ title, description, link, publisher })))}`
+            content: `다음 뉴스 데이터 중 가장 비즈니스 가치가 높은 8개를 엄선하여 JSON으로 응답하십시오 (현재 후보군: ${finalCandidates.length}건):\n${JSON.stringify(finalCandidates.map(({ title, description, leadText, link, publisher }) => ({ title, description: leadText || description, link, publisher })))}`
           }
         ],
         response_format: { type: "json_object" }
