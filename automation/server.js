@@ -568,11 +568,11 @@ app.post('/api/reports/generate/:sectorId', AdminAuth, async (req, res) => {
     // Clear reports cache on new report generation
     clearReportsCache();
     
-    // Send Telegram Notification
-    updateStatus(sectorId, 'working', `[리포트] 텔레그램 알림 전송 중...`);
-    await broadcastReportToTelegram(sectorId, reportData);
+    // Send Telegram Notification (Disabled by user request: 주간 트렌드 리포트는 텔레그램 발송 생략)
+    // updateStatus(sectorId, 'working', `[리포트] 텔레그램 알림 전송 중...`);
+    // await broadcastReportToTelegram(sectorId, reportData);
     
-    updateStatus(sectorId, 'idle', `✅ [리포트] ${sectorId} 주간 리포트 생성 및 알림 완료!`, 'success');
+    updateStatus(sectorId, 'idle', `✅ [리포트] ${sectorId} 주간 리포트 생성 완료!`, 'success');
     res.json({ success: true, data: reportData });
   } catch (error) {
     console.error(`[Report Error] ${sectorId}:`, error);

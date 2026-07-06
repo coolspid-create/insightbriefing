@@ -93,6 +93,20 @@ const MainLayout = () => {
     };
   }, []);
 
+  // URL 해시 감지 시 해당 섹터로 자동 부드러운 스크롤 이동
+  useEffect(() => {
+    if (newsData && window.location.hash) {
+      const timer = setTimeout(() => {
+        const id = window.location.hash.substring(1);
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300); // 렌더링이 완료되고 레이아웃이 안정될 때까지의 대기 시간
+      return () => clearTimeout(timer);
+    }
+  }, [newsData]);
+
   return (
     <div className="app-container">
       <Header />

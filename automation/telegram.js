@@ -55,12 +55,13 @@ async function broadcastToTelegram(sectorId, newsItems) {
   const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
   let message = `☀️ <b>${sectorName} 데일리 브리핑</b>\n`;
-  message += `📅 일자: ${dateStr}\n\n`;
+  message += `📅 일자: ${dateStr}\n`;
+  message += `🔗 <a href="https://www.ibrief.kr/#${sectorId}">인사이트 브리핑 바로가기</a>\n\n`;
   
   if (isUrgent && sectorId !== 'sector-safe') {
-    message = `🚨 <b>[긴급 필독] ${sectorName} 주요 리스크 및 동향 알림</b>\n📅 일자: ${dateStr}\n\n`;
+    message = `🚨 <b>[긴급 필독] ${sectorName} 주요 리스크 및 동향 알림</b>\n📅 일자: ${dateStr}\n🔗 <a href="https://www.ibrief.kr/#${sectorId}">인사이트 브리핑 바로가기</a>\n\n`;
   } else if (isUrgent && sectorId === 'sector-safe') {
-    message = `🚨 <b>${sectorName} 주요 리스크 및 동향 알림</b>\n📅 일자: ${dateStr}\n\n`;
+    message = `🚨 <b>${sectorName} 주요 리스크 및 동향 알림</b>\n📅 일자: ${dateStr}\n🔗 <a href="https://www.ibrief.kr/#${sectorId}">인사이트 브리핑 바로가기</a>\n\n`;
   }
 
   newsItems.forEach((news, idx) => {
@@ -69,7 +70,7 @@ async function broadcastToTelegram(sectorId, newsItems) {
     message += `🔗 <a href="${news.link}">원문 보기</a>\n\n`;
   });
 
-  message += `[INSIGHT BRIEFING]`;
+  message += `🔗 <a href="https://www.ibrief.kr/#${sectorId}">인사이트 브리핑에서 모아보기</a>`;
 
   const TELEGRAM_URL = `https://api.telegram.org/bot${botInfo.token}/sendMessage`;
 
