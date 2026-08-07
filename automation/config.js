@@ -3,7 +3,7 @@ module.exports = {
     {
       id: 'sector-ren',
       name: '신재생에너지(태양광)',
-      queries: ['태양광 보조금', '태양광 정책', '태양광 공급망', 'ESS 연계'],
+      queries: ['태양광 보조금', '태양광 정책', '태양광 공급망', 'ESS 연계', '제로에너지건축물'],
       weight: 1.0
     },
     {
